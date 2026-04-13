@@ -12,6 +12,8 @@ export interface FlowMatchNodeData {
   player2Id?: string | null
   winnerParticipantId?: string | null
   canEdit: boolean
+  selectedParticipantId?: string | null
+  onSelectParticipantSession?: (participantId: string) => void
   mode: 'block' | 'final'
   blockWinnersCount?: number
   onPickWinner: (matchId: string, winnerParticipantId: string | null) => void
@@ -36,6 +38,7 @@ export function FlowMatchNode({ data }: NodeProps) {
           ? nodeData.participantLabels.map((label, index) => {
               const participantId = nodeData.participantIds[index]
               const isQualified = nodeData.qualifiedParticipantIds.includes(participantId)
+              const isCurrentParticipant = nodeData.selectedParticipantId === participantId
               const nextSelection = isQualified
                 ? nodeData.qualifiedParticipantIds.filter((id) => id !== participantId)
                 : [...nodeData.qualifiedParticipantIds, participantId].slice(
@@ -47,16 +50,22 @@ export function FlowMatchNode({ data }: NodeProps) {
                 <button
                   key={participantId}
                   type="button"
-                  className={`flow-slot ${isQualified ? 'is-winner' : ''}`}
-                  disabled={!nodeData.canEdit}
-                  onClick={() =>
-                    nodeData.onUpdateBlockQualifiers(
-                      nodeData.blockId ?? nodeData.matchId,
-                      nextSelection,
-                    )
-                  }
+                  className={`flow-slot ${isQualified ? 'is-winner' : ''} ${isCurrentParticipant ? 'is-current-participant' : ''}`}
+                  disabled={!nodeData.canEdit && !nodeData.onSelectParticipantSession}
+                  onClick={() => {
+                    if (nodeData.canEdit) {
+                      nodeData.onUpdateBlockQualifiers(
+                        nodeData.blockId ?? nodeData.matchId,
+                        nextSelection,
+                      )
+                      return
+                    }
+
+                    nodeData.onSelectParticipantSession?.(participantId)
+                  }}
                 >
                   {label}
+                  {!nodeData.canEdit && isCurrentParticipant ? ' (表示中)' : ''}
                 </button>
               )
             })

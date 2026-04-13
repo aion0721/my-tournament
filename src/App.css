@@ -314,6 +314,13 @@
   font-weight: 700;
 }
 
+.slot-button.is-current-participant,
+.slot-label.is-current-participant,
+.flow-slot.is-current-participant {
+  border-color: rgba(182, 77, 45, 0.32);
+  box-shadow: 0 0 0 2px rgba(182, 77, 45, 0.12);
+}
+
 .slot-button:disabled {
   cursor: not-allowed;
 }

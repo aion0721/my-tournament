@@ -5,6 +5,8 @@ interface BlockBracketProps {
   match: Match | null
   participantMap: Map<string, Participant>
   canEdit: boolean
+  selectedParticipantId?: string | null
+  onSelectParticipantSession?: (participantId: string) => void
   onUpdateQualifiers: (blockId: string, qualifiedParticipantIds: string[]) => void
 }
 
@@ -17,6 +19,8 @@ export function BlockBracket({
   match,
   participantMap,
   canEdit,
+  selectedParticipantId,
+  onSelectParticipantSession,
   onUpdateQualifiers,
 }: BlockBracketProps) {
   const participantIds = match?.participantIds ?? []
@@ -37,6 +41,7 @@ export function BlockBracket({
         <div className="list">
           {participantIds.map((participantId) => {
             const isSelected = selectedIds.includes(participantId)
+            const isCurrentParticipant = selectedParticipantId === participantId
             const nextSelection = isSelected
               ? selectedIds.filter((id) => id !== participantId)
               : [...selectedIds, participantId].slice(0, block.winnersCount)
@@ -45,11 +50,19 @@ export function BlockBracket({
               <button
                 key={participantId}
                 type="button"
-                disabled={!canEdit}
-                className={`slot-button ${isSelected ? 'is-winner' : ''}`}
-                onClick={() => onUpdateQualifiers(block.id, nextSelection)}
+                disabled={!canEdit && !onSelectParticipantSession}
+                className={`slot-button ${isSelected ? 'is-winner' : ''} ${isCurrentParticipant ? 'is-current-participant' : ''}`}
+                onClick={() => {
+                  if (canEdit) {
+                    onUpdateQualifiers(block.id, nextSelection)
+                    return
+                  }
+
+                  onSelectParticipantSession?.(participantId)
+                }}
               >
                 {getParticipantName(participantId, participantMap)}
+                {!canEdit && isCurrentParticipant ? ' (表示中)' : ''}
               </button>
             )
           })}

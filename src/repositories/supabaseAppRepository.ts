@@ -236,6 +236,16 @@ export class SupabaseAppRepository implements AppRepository {
     }))
   }
 
+  async selectParticipantSession(eventId: string, participantId: string) {
+    this.updateSession((sessionState) => ({
+      ...sessionState,
+      joinedParticipantIdsByEventId: {
+        ...sessionState.joinedParticipantIdsByEventId,
+        [eventId]: participantId,
+      },
+    }))
+  }
+
   async createEvent(hostUserId: string, input: CreateEventInput) {
     const client = ensureSupabaseClient()
     const built = buildEventTournament(hostUserId, input)
@@ -528,6 +538,72 @@ export class SupabaseAppRepository implements AppRepository {
     if (updateError) {
       throw updateError
     }
+
+    await this.refreshRemoteState()
+    return this.state.eventRecords.find((record) => record.event.id === eventId) ?? eventRecord
+  }
+
+  async deleteParticipant(eventId: string, participantId: string) {
+    const client = ensureSupabaseClient()
+    const eventRecord = this.state.eventRecords.find((record) => record.event.id === eventId)
+    if (!eventRecord) {
+      throw new Error('イベントが見つかりません。')
+    }
+
+    const participant = eventRecord.participants.find((item) => item.id === participantId)
+    if (!participant) {
+      throw new Error('参加者が見つかりません。')
+    }
+
+    const participants = eventRecord.participants.filter((item) => item.id !== participantId)
+    const nextMatches = recomputeMatches(eventRecord.blocks, participants, eventRecord.matches)
+
+    if (participant.inviteId) {
+      const inviteResult = await client
+        .from('event_invites')
+        .update({
+          status: 'pending',
+          joined_participant_id: null,
+        })
+        .eq('id', participant.inviteId)
+      if (inviteResult.error) {
+        throw inviteResult.error
+      }
+    }
+
+    const participantResult = await client.from('participants').delete().eq('id', participantId)
+    if (participantResult.error) {
+      throw participantResult.error
+    }
+
+    const changedMatches = updateMatchRows(eventRecord, nextMatches)
+    const results = await Promise.all(
+      changedMatches.map((match) =>
+        client
+          .from('matches')
+          .update({
+            player1_participant_id: match.player1ParticipantId,
+            player2_participant_id: match.player2ParticipantId,
+            winner_participant_id: match.winnerParticipantId,
+            participant_ids: match.participantIds,
+            qualified_participant_ids: match.qualifiedParticipantIds,
+          })
+          .eq('id', match.id),
+      ),
+    )
+    const updateError = results.find((result) => result.error)?.error
+    if (updateError) {
+      throw updateError
+    }
+
+    this.updateSession((sessionState) => ({
+      ...sessionState,
+      joinedParticipantIdsByEventId: Object.fromEntries(
+        Object.entries(sessionState.joinedParticipantIdsByEventId).filter(
+          ([key, value]) => !(key === eventId && value === participantId),
+        ),
+      ),
+    }))
 
     await this.refreshRemoteState()
     return this.state.eventRecords.find((record) => record.event.id === eventId) ?? eventRecord

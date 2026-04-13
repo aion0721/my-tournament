@@ -8,6 +8,8 @@ interface TournamentViewProps {
   matches: Match[]
   participants: Participant[]
   canEdit: boolean
+  selectedParticipantId?: string | null
+  onSelectParticipantSession?: (participantId: string) => void
   onUpdateBlockQualifiers: (blockId: string, qualifiedParticipantIds: string[]) => void
   onPickWinner: (matchId: string, winnerParticipantId: string | null) => void
 }
@@ -17,6 +19,8 @@ export function TournamentView({
   matches,
   participants,
   canEdit,
+  selectedParticipantId,
+  onSelectParticipantSession,
   onUpdateBlockQualifiers,
   onPickWinner,
 }: TournamentViewProps) {
@@ -61,6 +65,8 @@ export function TournamentView({
           matches={matches}
           participants={participants}
           canEdit={canEdit}
+          selectedParticipantId={selectedParticipantId}
+          onSelectParticipantSession={onSelectParticipantSession}
           onUpdateBlockQualifiers={onUpdateBlockQualifiers}
           onPickWinner={onPickWinner}
         />
@@ -90,6 +96,8 @@ export function TournamentView({
                       match={match}
                       participantMap={participantMap}
                       canEdit={canEdit}
+                      selectedParticipantId={selectedParticipantId}
+                      onSelectParticipantSession={onSelectParticipantSession}
                       onUpdateQualifiers={onUpdateBlockQualifiers}
                     />
                   ))}

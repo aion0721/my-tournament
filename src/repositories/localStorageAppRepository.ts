@@ -182,6 +182,17 @@ export class LocalStorageAppRepository implements AppRepository {
     }))
   }
 
+  async selectParticipantSession(eventId: string, participantId: string) {
+    updateState((state) => ({
+      ...state,
+      joinedParticipantIdsByEventId: {
+        ...state.joinedParticipantIdsByEventId,
+        [eventId]: participantId,
+      },
+      storageMode: 'local' as const,
+    }))
+  }
+
   async createEvent(hostUserId: string, input: CreateEventInput) {
     let createdRecord: EventRecord | null = null
 
@@ -419,6 +430,53 @@ export class LocalStorageAppRepository implements AppRepository {
 
     if (!updatedRecord) {
       throw new Error('参加者配置更新に失敗しました。')
+    }
+
+    return updatedRecord
+  }
+
+  async deleteParticipant(eventId: string, participantId: string) {
+    let updatedRecord: EventRecord | null = null
+
+    updateState((state) => {
+      const eventRecord = findEventRecordById(state, eventId)
+      if (!eventRecord) {
+        throw new Error('イベントが見つかりません。')
+      }
+
+      const participant = eventRecord.participants.find((item) => item.id === participantId)
+      if (!participant) {
+        throw new Error('参加者が見つかりません。')
+      }
+
+      const participants = eventRecord.participants.filter((item) => item.id !== participantId)
+      const invites = eventRecord.invites.map((invite) =>
+        invite.id === participant.inviteId
+          ? { ...invite, status: 'pending' as const, joinedParticipantId: null }
+          : invite,
+      )
+
+      const nextRecord: EventRecord = {
+        ...eventRecord,
+        participants,
+        invites,
+        matches: recomputeMatches(eventRecord.blocks, participants, eventRecord.matches),
+      }
+      updatedRecord = nextRecord
+
+      return {
+        ...replaceEventRecord(state, nextRecord),
+        joinedParticipantIdsByEventId: Object.fromEntries(
+          Object.entries(state.joinedParticipantIdsByEventId).filter(
+            ([key, value]) => !(key === eventId && value === participantId),
+          ),
+        ),
+        storageMode: 'local' as const,
+      }
+    })
+
+    if (!updatedRecord) {
+      throw new Error('参加者の削除に失敗しました。')
     }
 
     return updatedRecord

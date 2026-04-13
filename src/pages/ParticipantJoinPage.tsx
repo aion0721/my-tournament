@@ -7,7 +7,13 @@ import { useAppStore } from '../hooks/useAppStore'
 
 export function ParticipantJoinPage() {
   const { shareToken } = useParams()
-  const { state, isReady, joinEvent, logoutParticipant } = useAppStore()
+  const {
+    state,
+    isReady,
+    joinEvent,
+    logoutParticipant,
+    selectParticipantSession,
+  } = useAppStore()
   const [notice, setNotice] = useState<string | null>(null)
 
   const eventRecord = useMemo(
@@ -58,7 +64,7 @@ export function ParticipantJoinPage() {
             <span className="eyebrow">Open Join</span>
             <h1>{eventRecord.event.name}</h1>
             <p className="lead">
-              共有 URL から参加できます。名前を入力すると空き枠にランダムで割り当てられます。
+              共有 URL から参加できます。トーナメント上の名前を押すと、その参加者として表示を切り替えられます。
             </p>
           </div>
           <div className="topbar-links">
@@ -92,7 +98,7 @@ export function ParticipantJoinPage() {
         <section className="section-card stack">
           <div>
             <div className="section-title">自分の参加情報</div>
-            <p className="muted">このブラウザで参加した参加者情報を表示します。</p>
+            <p className="muted">このブラウザで表示中の参加者情報です。</p>
           </div>
           {joinedParticipant ? (
             <>
@@ -118,7 +124,7 @@ export function ParticipantJoinPage() {
               </div>
               <div className="notice success">
                 Block {joinedParticipant.assignedBlockIndex + 1} / Seed{' '}
-                {joinedParticipant.assignedSeed} に参加中です。
+                {joinedParticipant.assignedSeed} を表示中です。
               </div>
               <div className="button-row">
                 <button
@@ -135,7 +141,7 @@ export function ParticipantJoinPage() {
             </>
           ) : (
             <div className="empty-state">
-              参加後に自分のブロックと初戦情報を表示します。
+              参加後、またはトーナメント上の名前を押すと参加者情報を表示します。
             </div>
           )}
         </section>
@@ -146,6 +152,16 @@ export function ParticipantJoinPage() {
         matches={eventRecord.matches}
         participants={eventRecord.participants}
         canEdit={false}
+        selectedParticipantId={joinedParticipant?.id ?? null}
+        onSelectParticipantSession={async (participantId) => {
+          await selectParticipantSession(eventRecord.event.id, participantId)
+          const participant = eventRecord.participants.find((item) => item.id === participantId)
+          setNotice(
+            participant
+              ? `${participant.name} を表示中の参加者に切り替えました。`
+              : '表示対象の参加者を切り替えました。',
+          )
+        }}
         onUpdateBlockQualifiers={() => {}}
         onPickWinner={() => {}}
       />

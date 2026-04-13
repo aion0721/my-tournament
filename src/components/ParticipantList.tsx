@@ -11,6 +11,7 @@ interface ParticipantListProps {
     assignedBlockIndex: number,
     assignedSeed: number,
   ) => Promise<void>
+  onDeleteParticipant?: (participant: Participant) => Promise<void>
 }
 
 export function ParticipantList({
@@ -19,6 +20,7 @@ export function ParticipantList({
   maxBlockCount = 0,
   maxSeed = 0,
   onUpdateAssignment,
+  onDeleteParticipant,
 }: ParticipantListProps) {
   const [drafts, setDrafts] = useState<Record<string, { blockIndex: number; seed: number }>>({})
 
@@ -28,8 +30,8 @@ export function ParticipantList({
         <div className="section-title">参加者一覧</div>
         <p className="muted">
           {canEdit
-            ? 'ホストはここで参加者のブロックとシードを修正できます。'
-            : '参加済みメンバーの現在の割当状況を表示します。'}
+            ? 'ホストはここで参加者のブロック、シード、削除を更新できます。'
+            : '参加済みメンバーの現在の割り当てを表示します。'}
         </p>
       </div>
       {participants.length === 0 ? (
@@ -99,6 +101,13 @@ export function ParticipantList({
                         }
                       >
                         配置変更
+                      </button>
+                      <button
+                        className="button-secondary"
+                        type="button"
+                        onClick={() => void onDeleteParticipant?.(participant)}
+                      >
+                        削除
                       </button>
                     </div>
                   ) : (

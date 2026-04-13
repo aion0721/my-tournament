@@ -24,6 +24,10 @@ export class AppService {
     return this.repository.logoutParticipant(eventId)
   }
 
+  selectParticipantSession(eventId: string, participantId: string) {
+    return this.repository.selectParticipantSession(eventId, participantId)
+  }
+
   createEvent(hostUserId: string, input: CreateEventInput) {
     return this.repository.createEvent(hostUserId, input)
   }
@@ -56,6 +60,10 @@ export class AppService {
       assignedBlockIndex,
       assignedSeed,
     )
+  }
+
+  deleteParticipant(eventId: string, participantId: string) {
+    return this.repository.deleteParticipant(eventId, participantId)
   }
 
   updateBlockQualifiers(eventId: string, blockId: string, qualifiedParticipantIds: string[]) {

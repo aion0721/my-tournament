@@ -45,6 +45,10 @@ export function AppStoreProvider({ children }: PropsWithChildren) {
         await appService.logoutParticipant(eventId)
         setState(appRepository.getState())
       },
+      selectParticipantSession: async (eventId, participantId) => {
+        await appService.selectParticipantSession(eventId, participantId)
+        setState(appRepository.getState())
+      },
       createEvent: async (hostUserId, input) => {
         const eventRecord = await appService.createEvent(hostUserId, input)
         setState(appRepository.getState())
@@ -78,6 +82,10 @@ export function AppStoreProvider({ children }: PropsWithChildren) {
           assignedBlockIndex,
           assignedSeed,
         )
+        setState(appRepository.getState())
+      },
+      deleteParticipant: async (eventId, participantId) => {
+        await appService.deleteParticipant(eventId, participantId)
         setState(appRepository.getState())
       },
       updateBlockQualifiers: async (eventId, blockId, qualifiedParticipantIds) => {

@@ -6,7 +6,13 @@ import { useAppStore } from '../hooks/useAppStore'
 
 export function InviteJoinPage() {
   const { inviteToken } = useParams()
-  const { state, isReady, joinEventByInvite, logoutParticipant } = useAppStore()
+  const {
+    state,
+    isReady,
+    joinEventByInvite,
+    logoutParticipant,
+    selectParticipantSession,
+  } = useAppStore()
   const [notice, setNotice] = useState<string | null>(null)
 
   const invite = useMemo(
@@ -67,10 +73,7 @@ export function InviteJoinPage() {
             <span className="eyebrow">Invite Join</span>
             <h1>{eventRecord.event.name}</h1>
             <p className="lead">
-              {invite.displayName} さん向けの招待参加ページです。
-              {invite.fixedBlockIndex !== null && invite.fixedSeed !== null
-                ? ` 固定枠は Block ${invite.fixedBlockIndex + 1} / Seed ${invite.fixedSeed} です。`
-                : ' 枠は参加時に確定します。'}
+              {invite.displayName} さん向けの招待参加ページです。トーナメント上の名前を押すと、その参加者として表示を切り替えられます。
             </p>
           </div>
           <div className="topbar-links">
@@ -120,7 +123,7 @@ export function InviteJoinPage() {
         <section className="section-card stack">
           <div>
             <div className="section-title">自分の参加情報</div>
-            <p className="muted">このブラウザで招待参加した参加者情報を表示します。</p>
+            <p className="muted">このブラウザで表示中の参加者情報です。</p>
           </div>
           {joinedParticipant ? (
             <>
@@ -146,7 +149,7 @@ export function InviteJoinPage() {
               </div>
               <div className="notice success">
                 Block {joinedParticipant.assignedBlockIndex + 1} / Seed{' '}
-                {joinedParticipant.assignedSeed} で参加中です。
+                {joinedParticipant.assignedSeed} を表示中です。
               </div>
               <div className="button-row">
                 <button
@@ -163,7 +166,7 @@ export function InviteJoinPage() {
             </>
           ) : (
             <div className="empty-state">
-              招待参加後に自分のブロックと初戦情報を表示します。
+              招待参加後、またはトーナメント上の名前を押すと参加者情報を表示します。
             </div>
           )}
         </section>
@@ -174,6 +177,16 @@ export function InviteJoinPage() {
         matches={eventRecord.matches}
         participants={eventRecord.participants}
         canEdit={false}
+        selectedParticipantId={joinedParticipant?.id ?? null}
+        onSelectParticipantSession={async (participantId) => {
+          await selectParticipantSession(eventRecord.event.id, participantId)
+          const participant = eventRecord.participants.find((item) => item.id === participantId)
+          setNotice(
+            participant
+              ? `${participant.name} を表示中の参加者に切り替えました。`
+              : '表示対象の参加者を切り替えました。',
+          )
+        }}
         onUpdateBlockQualifiers={() => {}}
         onPickWinner={() => {}}
       />

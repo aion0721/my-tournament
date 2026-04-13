@@ -13,6 +13,7 @@ export function EventLobbyPage() {
     isReady,
     createInvite,
     deleteEvent,
+    deleteParticipant,
     updateParticipantAssignment,
     updateBlockQualifiers,
     updateMatchWinner,
@@ -179,6 +180,23 @@ export function EventLobbyPage() {
               caught instanceof Error
                 ? caught.message
                 : '参加者の配置更新に失敗しました。',
+            )
+          }
+        }}
+        onDeleteParticipant={async (participant) => {
+          const shouldDelete = window.confirm(
+            `「${participant.name}」を参加者一覧から削除します。`,
+          )
+          if (!shouldDelete) {
+            return
+          }
+
+          try {
+            await deleteParticipant(eventRecord.event.id, participant.id)
+            setNotice('参加者を削除しました。')
+          } catch (caught) {
+            setNotice(
+              caught instanceof Error ? caught.message : '参加者の削除に失敗しました。',
             )
           }
         }}

@@ -18,6 +18,8 @@ interface FlowTournamentViewProps {
   matches: Match[]
   participants: Participant[]
   canEdit: boolean
+  selectedParticipantId?: string | null
+  onSelectParticipantSession?: (participantId: string) => void
   onUpdateBlockQualifiers: (blockId: string, qualifiedParticipantIds: string[]) => void
   onPickWinner: (matchId: string, winnerParticipantId: string | null) => void
 }
@@ -28,8 +30,6 @@ const nodeTypes: NodeTypes = {
 
 const matchNodeWidth = 260
 const matchNodeHeight = 188
-const labelNodeWidth = 220
-const labelNodeHeight = 42
 
 function getParticipantLabel(participantId: string | null, participantMap: Map<string, Participant>) {
   if (!participantId) {
@@ -97,6 +97,8 @@ export function FlowTournamentView({
   matches,
   participants,
   canEdit,
+  selectedParticipantId,
+  onSelectParticipantSession,
   onUpdateBlockQualifiers,
   onPickWinner,
 }: FlowTournamentViewProps) {
@@ -106,69 +108,6 @@ export function FlowTournamentView({
     const { positioned, blockMatchByBlockId } = buildLayout(matches, sortedBlocks)
     const nextNodes: Node[] = []
     const nextEdges: Edge[] = []
-
-    sortedBlocks.forEach((block) => {
-      const blockMatch = blockMatchByBlockId.get(block.id)
-      const position = blockMatch ? positioned.get(blockMatch.id) : null
-      if (!position) {
-        return
-      }
-
-      nextNodes.push({
-        id: `label-${block.id}`,
-        type: 'input',
-        draggable: false,
-        selectable: false,
-        sourcePosition: Position.Right,
-        targetPosition: Position.Left,
-        position: {
-          x: 24,
-          y: position.y + (matchNodeHeight - labelNodeHeight) / 2,
-        },
-        data: { label: `Block ${block.index + 1}` },
-        style: {
-          width: labelNodeWidth,
-          height: labelNodeHeight,
-          borderRadius: 18,
-          border: '1px solid rgba(75, 52, 35, 0.16)',
-          background: 'rgba(255, 250, 245, 0.96)',
-          color: '#2f241d',
-          fontWeight: 700,
-          padding: '10px 14px',
-        },
-      })
-    })
-
-    const finalMatches = matches.filter((match) => match.isFinalStage)
-    const firstFinalPosition = finalMatches
-      .map((match) => positioned.get(match.id))
-      .find((position): position is { x: number; y: number } => Boolean(position))
-
-    if (firstFinalPosition) {
-      nextNodes.push({
-        id: 'label-final',
-        type: 'input',
-        draggable: false,
-        selectable: false,
-        sourcePosition: Position.Right,
-        targetPosition: Position.Left,
-        position: {
-          x: 24,
-          y: firstFinalPosition.y + (matchNodeHeight - labelNodeHeight) / 2,
-        },
-        data: { label: 'Final Bracket' },
-        style: {
-          width: labelNodeWidth,
-          height: labelNodeHeight,
-          borderRadius: 18,
-          border: '1px solid rgba(75, 52, 35, 0.16)',
-          background: 'rgba(255, 250, 245, 0.96)',
-          color: '#2f241d',
-          fontWeight: 700,
-          padding: '10px 14px',
-        },
-      })
-    }
 
     matches.forEach((match) => {
       const position = positioned.get(match.id)
@@ -206,6 +145,8 @@ export function FlowTournamentView({
           player2Id: match.player2ParticipantId,
           winnerParticipantId: match.winnerParticipantId,
           canEdit,
+          selectedParticipantId,
+          onSelectParticipantSession,
           mode: match.stageType,
           blockWinnersCount: block?.winnersCount,
           onPickWinner,
@@ -247,7 +188,16 @@ export function FlowTournamentView({
     })
 
     return { nodes: nextNodes, edges: nextEdges }
-  }, [blocks, canEdit, matches, onPickWinner, onUpdateBlockQualifiers, participants])
+  }, [
+    blocks,
+    canEdit,
+    matches,
+    onPickWinner,
+    onSelectParticipantSession,
+    onUpdateBlockQualifiers,
+    participants,
+    selectedParticipantId,
+  ])
 
   return (
     <div className="flow-canvas">

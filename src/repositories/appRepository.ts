@@ -15,6 +15,7 @@ export interface AppRepository {
   loginHost(name: string): Promise<User>
   logout(): Promise<void>
   logoutParticipant(eventId: string): Promise<void>
+  selectParticipantSession(eventId: string, participantId: string): Promise<void>
   createEvent(hostUserId: string, input: CreateEventInput): Promise<EventRecord>
   deleteEvent(eventId: string): Promise<void>
   createInvite(input: CreateInviteInput): Promise<EventInvite>
@@ -29,6 +30,7 @@ export interface AppRepository {
     assignedBlockIndex: number,
     assignedSeed: number,
   ): Promise<EventRecord>
+  deleteParticipant(eventId: string, participantId: string): Promise<EventRecord>
   updateBlockQualifiers(
     eventId: string,
     blockId: string,
