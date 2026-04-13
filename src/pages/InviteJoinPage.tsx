@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { ParticipantNameEditor } from '../components/ParticipantNameEditor'
 import { TournamentView } from '../components/TournamentView'
 import { getParticipantFirstMatch } from '../domain/tournament'
 import { useAppStore } from '../hooks/useAppStore'
@@ -12,6 +13,7 @@ export function InviteJoinPage() {
     joinEventByInvite,
     logoutParticipant,
     selectParticipantSession,
+    updateParticipantName,
   } = useAppStore()
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -38,6 +40,10 @@ export function InviteJoinPage() {
     const participantId = state.joinedParticipantIdsByEventId[eventRecord.event.id]
     return eventRecord.participants.find((participant) => participant.id === participantId) ?? null
   }, [eventRecord, state.joinedParticipantIdsByEventId])
+
+  useEffect(() => {
+    document.title = eventRecord ? `MyTournament：${eventRecord.event.name}` : 'MyTournament'
+  }, [eventRecord])
 
   if (!isReady) {
     return (
@@ -147,6 +153,27 @@ export function InviteJoinPage() {
                   </div>
                 </div>
               </div>
+              <ParticipantNameEditor
+                key={joinedParticipant.id}
+                inputId="invite-participant-name"
+                initialName={joinedParticipant.name}
+                onSubmit={async (name) => {
+                  try {
+                    await updateParticipantName(
+                      eventRecord.event.id,
+                      joinedParticipant.id,
+                      name,
+                    )
+                    setNotice('参加者名を更新しました。')
+                  } catch (caught) {
+                    setNotice(
+                      caught instanceof Error
+                        ? caught.message
+                        : '参加者名の更新に失敗しました。',
+                    )
+                  }
+                }}
+              />
               <div className="notice success">
                 Block {joinedParticipant.assignedBlockIndex + 1} / Seed{' '}
                 {joinedParticipant.assignedSeed} を表示中です。

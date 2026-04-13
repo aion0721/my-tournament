@@ -27,7 +27,7 @@ export function FlowMatchNode({ data }: NodeProps) {
 
   return (
     <article className="flow-match-node">
-      <Handle type="target" position={Position.Left} className="flow-handle" />
+      <Handle type="target" position={Position.Bottom} className="flow-handle" />
       <div className="flow-match-header">
         <div className="flow-match-stage">{nodeData.stageLabel}</div>
         <strong>{nodeData.title}</strong>
@@ -90,7 +90,7 @@ export function FlowMatchNode({ data }: NodeProps) {
             </>
           )}
       </div>
-      <Handle type="source" position={Position.Right} className="flow-handle" />
+      <Handle type="source" position={Position.Top} className="flow-handle" />
     </article>
   )
 }

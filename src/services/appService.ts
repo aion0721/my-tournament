@@ -62,6 +62,10 @@ export class AppService {
     )
   }
 
+  updateParticipantName(eventId: string, participantId: string, name: string) {
+    return this.repository.updateParticipantName(eventId, participantId, name)
+  }
+
   deleteParticipant(eventId: string, participantId: string) {
     return this.repository.deleteParticipant(eventId, participantId)
   }

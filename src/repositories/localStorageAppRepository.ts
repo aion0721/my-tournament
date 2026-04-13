@@ -435,6 +435,60 @@ export class LocalStorageAppRepository implements AppRepository {
     return updatedRecord
   }
 
+  async updateParticipantName(eventId: string, participantId: string, name: string) {
+    const normalized = name.trim()
+    if (!normalized) {
+      throw new Error('参加者名を入力してください。')
+    }
+
+    let updatedRecord: EventRecord | null = null
+
+    updateState((state) => {
+      const eventRecord = findEventRecordById(state, eventId)
+      if (!eventRecord) {
+        throw new Error('イベントが見つかりません。')
+      }
+
+      const exists = eventRecord.participants.some((participant) => participant.id === participantId)
+      if (!exists) {
+        throw new Error('参加者が見つかりません。')
+      }
+
+      const participants = eventRecord.participants.map((participant) =>
+        participant.id === participantId
+          ? {
+              ...participant,
+              name: normalized,
+            }
+          : participant,
+      )
+
+      const invites = eventRecord.invites.map((invite) =>
+        invite.id === eventRecord.participants.find((participant) => participant.id === participantId)?.inviteId
+          ? { ...invite, displayName: normalized }
+          : invite,
+      )
+
+      const nextRecord: EventRecord = {
+        ...eventRecord,
+        participants,
+        invites,
+      }
+      updatedRecord = nextRecord
+
+      return {
+        ...replaceEventRecord(state, nextRecord),
+        storageMode: 'local' as const,
+      }
+    })
+
+    if (!updatedRecord) {
+      throw new Error('参加者名の更新に失敗しました。')
+    }
+
+    return updatedRecord
+  }
+
   async deleteParticipant(eventId: string, participantId: string) {
     let updatedRecord: EventRecord | null = null
 

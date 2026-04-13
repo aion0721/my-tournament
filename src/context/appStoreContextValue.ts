@@ -20,6 +20,11 @@ export interface AppStoreValue {
     assignedBlockIndex: number,
     assignedSeed: number,
   ) => Promise<void>
+  updateParticipantName: (
+    eventId: string,
+    participantId: string,
+    name: string,
+  ) => Promise<void>
   deleteParticipant: (eventId: string, participantId: string) => Promise<void>
   updateBlockQualifiers: (
     eventId: string,

@@ -15,20 +15,17 @@ export function reassignParticipantSlot(
     throw new Error('指定されたシードが範囲外です。')
   }
 
+  const currentParticipant = participants.find((participant) => participant.id === participantId)
+  if (!currentParticipant) {
+    throw new Error('参加者が見つかりません。')
+  }
+
   const collision = participants.find(
     (participant) =>
       participant.id !== participantId &&
       participant.assignedBlockIndex === assignedBlockIndex &&
       participant.assignedSeed === assignedSeed,
   )
-  if (collision) {
-    throw new Error('そのブロック・シードはすでに使用されています。')
-  }
-
-  const exists = participants.some((participant) => participant.id === participantId)
-  if (!exists) {
-    throw new Error('参加者が見つかりません。')
-  }
 
   return participants.map((participant) =>
     participant.id === participantId
@@ -37,6 +34,12 @@ export function reassignParticipantSlot(
           assignedBlockIndex,
           assignedSeed,
         }
+      : collision && participant.id === collision.id
+        ? {
+            ...participant,
+            assignedBlockIndex: currentParticipant.assignedBlockIndex,
+            assignedSeed: currentParticipant.assignedSeed,
+          }
       : participant,
   )
 }

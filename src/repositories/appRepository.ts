@@ -30,6 +30,11 @@ export interface AppRepository {
     assignedBlockIndex: number,
     assignedSeed: number,
   ): Promise<EventRecord>
+  updateParticipantName(
+    eventId: string,
+    participantId: string,
+    name: string,
+  ): Promise<EventRecord>
   deleteParticipant(eventId: string, participantId: string): Promise<EventRecord>
   updateBlockQualifiers(
     eventId: string,

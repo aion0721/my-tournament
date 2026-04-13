@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { InviteManagementCard } from '../components/InviteManagementCard'
 import { ParticipantList } from '../components/ParticipantList'
+import { QrCodeModal } from '../components/QrCodeModal'
 import { TournamentView } from '../components/TournamentView'
 import { useAppStore } from '../hooks/useAppStore'
 
@@ -15,15 +16,21 @@ export function EventLobbyPage() {
     deleteEvent,
     deleteParticipant,
     updateParticipantAssignment,
+    updateParticipantName,
     updateBlockQualifiers,
     updateMatchWinner,
   } = useAppStore()
   const [notice, setNotice] = useState<string | null>(null)
+  const [isQrOpen, setIsQrOpen] = useState(false)
 
   const eventRecord = useMemo(
     () => state.eventRecords.find((record) => record.event.id === eventId) ?? null,
     [eventId, state.eventRecords],
   )
+
+  useEffect(() => {
+    document.title = eventRecord ? `MyTournament：${eventRecord.event.name}` : 'MyTournament'
+  }, [eventRecord])
 
   if (!isReady) {
     return (
@@ -54,14 +61,17 @@ export function EventLobbyPage() {
     <main className="page">
       <section className="hero-panel stack">
         <div className="page-heading">
-          <div>
-            <span className="eyebrow">Host View</span>
-            <h1>{eventRecord.event.name}</h1>
-            <p className="lead">
-              {eventRecord.event.blockCount} ブロック / 1ブロック
-              {eventRecord.event.participantsPerBlock} 人 / 各ブロックから
-              {eventRecord.event.winnersPerBlock} 人勝ち上がり
-            </p>
+          <div className="stack">
+            <img className="app-logo" src="/logo.png" alt="MyTournament logo" />
+            <div>
+              <span className="eyebrow">Host View</span>
+              <h1>{eventRecord.event.name}</h1>
+              <p className="lead">
+                {eventRecord.event.blockCount} ブロック / 1ブロック
+                {eventRecord.event.participantsPerBlock} 人 / 各ブロックから
+                {eventRecord.event.winnersPerBlock} 人勝ち上がり
+              </p>
+            </div>
           </div>
           <div className="topbar-links">
             <Link className="chip-button" to="/">
@@ -108,6 +118,13 @@ export function EventLobbyPage() {
             }}
           >
             参加 URL をコピー
+          </button>
+          <button
+            className="button-secondary"
+            type="button"
+            onClick={() => setIsQrOpen(true)}
+          >
+            QRコードで表示
           </button>
           {isHost ? (
             <button
@@ -183,6 +200,16 @@ export function EventLobbyPage() {
             )
           }
         }}
+        onUpdateName={async (participantId, name) => {
+          try {
+            await updateParticipantName(eventRecord.event.id, participantId, name)
+            setNotice('参加者名を更新しました。')
+          } catch (caught) {
+            setNotice(
+              caught instanceof Error ? caught.message : '参加者名の更新に失敗しました。',
+            )
+          }
+        }}
         onDeleteParticipant={async (participant) => {
           const shouldDelete = window.confirm(
             `「${participant.name}」を参加者一覧から削除します。`,
@@ -229,6 +256,13 @@ export function EventLobbyPage() {
             )
           }
         }}
+      />
+
+      <QrCodeModal
+        title="通常参加 QRコード"
+        value={participantJoinUrl}
+        isOpen={isQrOpen}
+        onClose={() => setIsQrOpen(false)}
       />
     </main>
   )

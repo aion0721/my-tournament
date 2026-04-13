@@ -1,11 +1,11 @@
-import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { EventCreateForm } from '../components/EventCreateForm'
-import { HostAuthCard } from '../components/HostAuthCard'
-import { useAppStore } from '../hooks/useAppStore'
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { EventCreateForm } from "../components/EventCreateForm";
+import { HostAuthCard } from "../components/HostAuthCard";
+import { useAppStore } from "../hooks/useAppStore";
 
 export function EventCreatePage() {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
   const {
     state,
     currentUserName,
@@ -14,13 +14,13 @@ export function EventCreatePage() {
     logout,
     createEvent,
     deleteEvent,
-  } = useAppStore()
-  const [error, setError] = useState<string | null>(null)
+  } = useAppStore();
+  const [error, setError] = useState<string | null>(null);
 
   const currentUser = useMemo(
     () => state.users.find((user) => user.id === state.currentUserId) ?? null,
     [state.currentUserId, state.users],
-  )
+  );
 
   const hostEvents = useMemo(
     () =>
@@ -28,19 +28,30 @@ export function EventCreatePage() {
         (eventRecord) => eventRecord.event.hostUserId === state.currentUserId,
       ),
     [state.eventRecords, state.currentUserId],
-  )
+  );
+
+  useEffect(() => {
+    document.title = "MyTournament";
+  }, []);
 
   return (
     <main className="page">
       <section className="hero-panel stack">
         <div className="page-heading">
-          <div>
-            <span className="eyebrow">Tournament MVP</span>
-            <h1>大会イベントを作成して共有できます</h1>
-            <p className="lead">
-              主催者はイベント作成と管理、参加者は共有 URL から参加できます。保存先は
-              {state.storageMode === 'supabase' ? ' Supabase' : ' localStorage'} です。
-            </p>
+          <div className="stack">
+            <img className="app-logo" src="/logo.png" alt="MyTournament logo" />
+            <div>
+              <span className="eyebrow">Tournament MVP</span>
+              <h1>MyTournament</h1>
+              <p className="lead">
+                主催者はイベント作成と管理、参加者は共有 URL
+                から参加できます。保存先は
+                {state.storageMode === "supabase"
+                  ? " Supabase"
+                  : " localStorage"}{" "}
+                です。
+              </p>
+            </div>
           </div>
           {currentUserName ? (
             <div className="button-row">
@@ -49,8 +60,8 @@ export function EventCreatePage() {
                 className="button-secondary"
                 type="button"
                 onClick={async () => {
-                  await logout()
-                  setError(null)
+                  await logout();
+                  setError(null);
                 }}
               >
                 ログアウト
@@ -66,12 +77,14 @@ export function EventCreatePage() {
           currentUserName={currentUserName}
           onLogin={async (name) => {
             try {
-              setError(null)
-              await loginHost(name)
+              setError(null);
+              await loginHost(name);
             } catch (caught) {
               setError(
-                caught instanceof Error ? caught.message : 'ログインに失敗しました。',
-              )
+                caught instanceof Error
+                  ? caught.message
+                  : "ログインに失敗しました。",
+              );
             }
           }}
           onLogout={() => void logout()}
@@ -80,18 +93,20 @@ export function EventCreatePage() {
           disabled={!isReady || !currentUser}
           onSubmit={async (input) => {
             if (!currentUser) {
-              setError('イベント作成には主催者ログインが必要です。')
-              return
+              setError("イベント作成には主催者ログインが必要です。");
+              return;
             }
 
             try {
-              setError(null)
-              const eventId = await createEvent(currentUser.id, input)
-              navigate(`/events/${eventId}`)
+              setError(null);
+              const eventId = await createEvent(currentUser.id, input);
+              navigate(`/events/${eventId}`);
             } catch (caught) {
               setError(
-                caught instanceof Error ? caught.message : 'イベント作成に失敗しました。',
-              )
+                caught instanceof Error
+                  ? caught.message
+                  : "イベント作成に失敗しました。",
+              );
             }
           }}
         />
@@ -120,7 +135,10 @@ export function EventCreatePage() {
                   <Link className="chip-button" to={`/events/${event.id}`}>
                     ホスト画面
                   </Link>
-                  <Link className="chip-button" to={`/join/${event.shareToken}`}>
+                  <Link
+                    className="chip-button"
+                    to={`/join/${event.shareToken}`}
+                  >
                     参加画面
                   </Link>
                   <button
@@ -129,20 +147,20 @@ export function EventCreatePage() {
                     onClick={async () => {
                       const shouldDelete = window.confirm(
                         `「${event.name}」を削除します。元に戻せません。`,
-                      )
+                      );
                       if (!shouldDelete) {
-                        return
+                        return;
                       }
 
                       try {
-                        setError(null)
-                        await deleteEvent(event.id)
+                        setError(null);
+                        await deleteEvent(event.id);
                       } catch (caught) {
                         setError(
                           caught instanceof Error
                             ? caught.message
-                            : 'イベント削除に失敗しました。',
-                        )
+                            : "イベント削除に失敗しました。",
+                        );
                       }
                     }}
                   >
@@ -155,5 +173,5 @@ export function EventCreatePage() {
         )}
       </section>
     </main>
-  )
+  );
 }

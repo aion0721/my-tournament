@@ -507,16 +507,31 @@ export class SupabaseAppRepository implements AppRepository {
       assignedSeed,
     )
     const nextMatches = recomputeMatches(eventRecord.blocks, participants, eventRecord.matches)
+    const changedParticipants = participants.filter((nextParticipant) => {
+      const currentParticipant = eventRecord.participants.find(
+        (participant) => participant.id === nextParticipant.id,
+      )
+      return (
+        currentParticipant &&
+        (currentParticipant.assignedBlockIndex !== nextParticipant.assignedBlockIndex ||
+          currentParticipant.assignedSeed !== nextParticipant.assignedSeed)
+      )
+    })
 
-    const participantResult = await client
-      .from('participants')
-      .update({
-        assigned_block_index: assignedBlockIndex,
-        assigned_seed: assignedSeed,
-      })
-      .eq('id', participantId)
-    if (participantResult.error) {
-      throw participantResult.error
+    const participantResults = await Promise.all(
+      changedParticipants.map((participant) =>
+        client
+          .from('participants')
+          .update({
+            assigned_block_index: participant.assignedBlockIndex,
+            assigned_seed: participant.assignedSeed,
+          })
+          .eq('id', participant.id),
+      ),
+    )
+    const participantUpdateError = participantResults.find((result) => result.error)?.error
+    if (participantUpdateError) {
+      throw participantUpdateError
     }
 
     const changedMatches = updateMatchRows(eventRecord, nextMatches)
@@ -537,6 +552,45 @@ export class SupabaseAppRepository implements AppRepository {
     const updateError = results.find((result) => result.error)?.error
     if (updateError) {
       throw updateError
+    }
+
+    await this.refreshRemoteState()
+    return this.state.eventRecords.find((record) => record.event.id === eventId) ?? eventRecord
+  }
+
+  async updateParticipantName(eventId: string, participantId: string, name: string) {
+    const client = ensureSupabaseClient()
+    const normalized = name.trim()
+    if (!normalized) {
+      throw new Error('参加者名を入力してください。')
+    }
+
+    const eventRecord = this.state.eventRecords.find((record) => record.event.id === eventId)
+    if (!eventRecord) {
+      throw new Error('イベントが見つかりません。')
+    }
+
+    const participant = eventRecord.participants.find((item) => item.id === participantId)
+    if (!participant) {
+      throw new Error('参加者が見つかりません。')
+    }
+
+    const participantResult = await client
+      .from('participants')
+      .update({ name: normalized })
+      .eq('id', participantId)
+    if (participantResult.error) {
+      throw participantResult.error
+    }
+
+    if (participant.inviteId) {
+      const inviteResult = await client
+        .from('event_invites')
+        .update({ display_name: normalized })
+        .eq('id', participant.inviteId)
+      if (inviteResult.error) {
+        throw inviteResult.error
+      }
     }
 
     await this.refreshRemoteState()

@@ -11,6 +11,7 @@ interface ParticipantListProps {
     assignedBlockIndex: number,
     assignedSeed: number,
   ) => Promise<void>
+  onUpdateName?: (participantId: string, name: string) => Promise<void>
   onDeleteParticipant?: (participant: Participant) => Promise<void>
 }
 
@@ -20,9 +21,12 @@ export function ParticipantList({
   maxBlockCount = 0,
   maxSeed = 0,
   onUpdateAssignment,
+  onUpdateName,
   onDeleteParticipant,
 }: ParticipantListProps) {
-  const [drafts, setDrafts] = useState<Record<string, { blockIndex: number; seed: number }>>({})
+  const [drafts, setDrafts] = useState<
+    Record<string, { name: string; blockIndex: number; seed: number }>
+  >({})
 
   return (
     <section className="section-card stack">
@@ -30,7 +34,7 @@ export function ParticipantList({
         <div className="section-title">参加者一覧</div>
         <p className="muted">
           {canEdit
-            ? 'ホストはここで参加者のブロック、シード、削除を更新できます。'
+            ? 'ホストはここで参加者名、ブロック、シード、削除を更新できます。'
             : '参加済みメンバーの現在の割り当てを表示します。'}
         </p>
       </div>
@@ -43,14 +47,40 @@ export function ParticipantList({
             .sort((left, right) => left.joinedAt.localeCompare(right.joinedAt))
             .map((participant) => {
               const draft = drafts[participant.id] ?? {
+                name: participant.name,
                 blockIndex: participant.assignedBlockIndex,
                 seed: participant.assignedSeed,
               }
 
               return (
                 <div className="participant-row" key={participant.id}>
-                  <div>
-                    <strong>{participant.name}</strong>
+                  <div className="stack" style={{ minWidth: 220 }}>
+                    {canEdit ? (
+                      <div className="button-row">
+                        <input
+                          value={draft.name}
+                          onChange={(event) =>
+                            setDrafts((current) => ({
+                              ...current,
+                              [participant.id]: {
+                                ...draft,
+                                name: event.target.value,
+                              },
+                            }))
+                          }
+                          style={{ minWidth: 180 }}
+                        />
+                        <button
+                          className="button-secondary"
+                          type="button"
+                          onClick={() => void onUpdateName?.(participant.id, draft.name)}
+                        >
+                          名前変更
+                        </button>
+                      </div>
+                    ) : (
+                      <strong>{participant.name}</strong>
+                    )}
                     <div className="muted">
                       Block {participant.assignedBlockIndex + 1} / Seed {participant.assignedSeed}
                     </div>

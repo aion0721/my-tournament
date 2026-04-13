@@ -42,9 +42,9 @@ function buildLayout(matches: Match[], blocks: Block[]) {
   const graph = new dagre.graphlib.Graph()
   graph.setDefaultEdgeLabel(() => ({}))
   graph.setGraph({
-    rankdir: 'LR',
-    ranksep: 150,
-    nodesep: 68,
+    rankdir: 'BT',
+    ranksep: 120,
+    nodesep: 52,
     marginx: 24,
     marginy: 24,
   })
@@ -123,12 +123,9 @@ export function FlowTournamentView({
       nextNodes.push({
         id: match.id,
         type: 'match',
-        sourcePosition: Position.Right,
-        targetPosition: Position.Left,
-        position: {
-          x: position.x + 220,
-          y: position.y,
-        },
+        sourcePosition: Position.Top,
+        targetPosition: Position.Bottom,
+        position,
         data: {
           title:
             match.isFinalStage ? `Final Block` : `Block Battle`,

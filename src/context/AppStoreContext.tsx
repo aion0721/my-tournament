@@ -84,6 +84,10 @@ export function AppStoreProvider({ children }: PropsWithChildren) {
         )
         setState(appRepository.getState())
       },
+      updateParticipantName: async (eventId, participantId, name) => {
+        await appService.updateParticipantName(eventId, participantId, name)
+        setState(appRepository.getState())
+      },
       deleteParticipant: async (eventId, participantId) => {
         await appService.deleteParticipant(eventId, participantId)
         setState(appRepository.getState())
