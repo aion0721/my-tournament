@@ -18,7 +18,7 @@ export function HostAuthCard({
       <div>
         <div className="section-title">主催者ログイン</div>
         <p className="muted">
-          MVPとして、名前だけで主催者アカウントを作成・再利用します。
+          MVP では簡易ログインです。主催者名を入力するとイベント作成と管理を行えます。
         </p>
       </div>
       {currentUserName ? (
@@ -45,7 +45,7 @@ export function HostAuthCard({
           </div>
           <div className="button-row">
             <button className="button" type="button" onClick={() => onLogin(name)}>
-              登録 / ログイン
+              ログイン
             </button>
           </div>
         </div>

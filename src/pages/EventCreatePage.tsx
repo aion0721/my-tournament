@@ -6,7 +6,15 @@ import { useAppStore } from '../hooks/useAppStore'
 
 export function EventCreatePage() {
   const navigate = useNavigate()
-  const { state, currentUserName, isReady, loginHost, logout, createEvent } = useAppStore()
+  const {
+    state,
+    currentUserName,
+    isReady,
+    loginHost,
+    logout,
+    createEvent,
+    deleteEvent,
+  } = useAppStore()
   const [error, setError] = useState<string | null>(null)
 
   const currentUser = useMemo(
@@ -28,12 +36,28 @@ export function EventCreatePage() {
         <div className="page-heading">
           <div>
             <span className="eyebrow">Tournament MVP</span>
-            <h1>大会作成から参加導線までを、ひとつの画面群で管理</h1>
+            <h1>大会イベントを作成して共有できます</h1>
             <p className="lead">
-              React + TypeScript で構成したトーナメント管理MVPです。
-              ブロック戦、共有URL参加、ランダム割当、決勝トーナメント反映まで実装しています。
+              主催者はイベント作成と管理、参加者は共有 URL から参加できます。保存先は
+              {state.storageMode === 'supabase' ? ' Supabase' : ' localStorage'}
+              です。
             </p>
           </div>
+          {currentUserName ? (
+            <div className="button-row">
+              <span className="badge">{currentUserName}</span>
+              <button
+                className="button-secondary"
+                type="button"
+                onClick={async () => {
+                  await logout()
+                  setError(null)
+                }}
+              >
+                ログアウト
+              </button>
+            </div>
+          ) : null}
         </div>
         {error ? <div className="notice">{error}</div> : null}
       </section>
@@ -46,7 +70,9 @@ export function EventCreatePage() {
               setError(null)
               await loginHost(name)
             } catch (caught) {
-              setError(caught instanceof Error ? caught.message : 'ログインに失敗しました。')
+              setError(
+                caught instanceof Error ? caught.message : 'ログインに失敗しました。',
+              )
             }
           }}
           onLogout={() => void logout()}
@@ -64,7 +90,9 @@ export function EventCreatePage() {
               const eventId = await createEvent(currentUser.id, input)
               navigate(`/events/${eventId}`)
             } catch (caught) {
-              setError(caught instanceof Error ? caught.message : 'イベント作成に失敗しました。')
+              setError(
+                caught instanceof Error ? caught.message : 'イベント作成に失敗しました。',
+              )
             }
           }}
         />
@@ -74,12 +102,11 @@ export function EventCreatePage() {
         <div>
           <div className="section-title">主催イベント</div>
           <p className="muted">
-            ログイン中の主催者が作成したイベントを一覧できます。現在の保存先は
-            {state.storageMode === 'supabase' ? ' Supabase' : ' localStorage'}です。
+            現在ログイン中の主催者が作成したイベント一覧です。
           </p>
         </div>
         {hostEvents.length === 0 ? (
-          <div className="empty-state">作成済みイベントはまだありません。</div>
+          <div className="empty-state">まだイベントはありません。</div>
         ) : (
           <div className="list">
             {hostEvents.map(({ event, participants }) => (
@@ -87,7 +114,7 @@ export function EventCreatePage() {
                 <div>
                   <strong>{event.name}</strong>
                   <div className="muted">
-                    {participants.length} / {event.capacity} 参加済み
+                    {participants.length} / {event.capacity} 人参加
                   </div>
                 </div>
                 <div className="topbar-links">
@@ -97,6 +124,31 @@ export function EventCreatePage() {
                   <Link className="chip-button" to={`/join/${event.shareToken}`}>
                     参加画面
                   </Link>
+                  <button
+                    className="button-secondary"
+                    type="button"
+                    onClick={async () => {
+                      const shouldDelete = window.confirm(
+                        `「${event.name}」を削除します。元に戻せません。`,
+                      )
+                      if (!shouldDelete) {
+                        return
+                      }
+
+                      try {
+                        setError(null)
+                        await deleteEvent(event.id)
+                      } catch (caught) {
+                        setError(
+                          caught instanceof Error
+                            ? caught.message
+                            : 'イベント削除に失敗しました。',
+                        )
+                      }
+                    }}
+                  >
+                    イベント削除
+                  </button>
                 </div>
               </div>
             ))}

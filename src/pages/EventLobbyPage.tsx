@@ -1,13 +1,22 @@
 import { useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { InviteManagementCard } from '../components/InviteManagementCard'
 import { ParticipantList } from '../components/ParticipantList'
 import { TournamentView } from '../components/TournamentView'
 import { useAppStore } from '../hooks/useAppStore'
 
 export function EventLobbyPage() {
+  const navigate = useNavigate()
   const { eventId } = useParams()
-  const { state, isReady, createInvite, updateBlockQualifiers, updateMatchWinner } = useAppStore()
+  const {
+    state,
+    isReady,
+    createInvite,
+    deleteEvent,
+    updateParticipantAssignment,
+    updateBlockQualifiers,
+    updateMatchWinner,
+  } = useAppStore()
   const [notice, setNotice] = useState<string | null>(null)
 
   const eventRecord = useMemo(
@@ -20,7 +29,7 @@ export function EventLobbyPage() {
       <main className="page">
         <section className="section-card">
           <div className="section-title">読み込み中</div>
-          <p className="muted">保存先からイベント情報を取得しています。</p>
+          <p className="muted">イベント情報を取得しています。</p>
         </section>
       </main>
     )
@@ -31,13 +40,13 @@ export function EventLobbyPage() {
       <main className="page">
         <section className="section-card">
           <div className="section-title">イベントが見つかりません</div>
-          <p className="muted">URL を確認してください。</p>
+          <p className="muted">共有 URL が正しいか確認してください。</p>
         </section>
       </main>
     )
   }
 
-  const inviteUrl = `${window.location.origin}/join/${eventRecord.event.shareToken}`
+  const participantJoinUrl = `${window.location.origin}/join/${eventRecord.event.shareToken}`
   const isHost = state.currentUserId === eventRecord.event.hostUserId
 
   return (
@@ -48,23 +57,24 @@ export function EventLobbyPage() {
             <span className="eyebrow">Host View</span>
             <h1>{eventRecord.event.name}</h1>
             <p className="lead">
-              {eventRecord.event.blockCount}ブロック / 各ブロック
-              {eventRecord.event.participantsPerBlock}人 / 各ブロックから
-              {eventRecord.event.winnersPerBlock}人勝ち上がり
+              {eventRecord.event.blockCount} ブロック / 1ブロック
+              {eventRecord.event.participantsPerBlock} 人 / 各ブロックから
+              {eventRecord.event.winnersPerBlock} 人勝ち上がり
             </p>
           </div>
           <div className="topbar-links">
             <Link className="chip-button" to="/">
-              イベント一覧へ
+              一覧へ戻る
             </Link>
             <Link className="chip-button" to={`/join/${eventRecord.event.shareToken}`}>
-              通常参加画面へ
+              参加画面
             </Link>
           </div>
         </div>
+
         <div className="stat-grid">
           <div className="stat-card">
-            <div className="stat-label">参加状況</div>
+            <div className="stat-label">参加人数</div>
             <div className="stat-value">
               {eventRecord.participants.length} / {eventRecord.event.capacity}
             </div>
@@ -74,29 +84,59 @@ export function EventLobbyPage() {
             <div className="stat-value">{eventRecord.event.blockCount}</div>
           </div>
           <div className="stat-card">
-            <div className="stat-label">通常参加URL</div>
+            <div className="stat-label">共有コード</div>
             <div className="stat-value">{eventRecord.event.shareToken}</div>
           </div>
           <div className="stat-card">
-            <div className="stat-label">招待人数</div>
+            <div className="stat-label">招待数</div>
             <div className="stat-value">{eventRecord.invites.length}</div>
           </div>
         </div>
+
         <div className="notice">
-          <strong>通常参加URL:</strong> <span className="mono">{inviteUrl}</span>
+          <strong>通常参加 URL:</strong> <span className="mono">{participantJoinUrl}</span>
         </div>
+
         <div className="button-row">
           <button
             className="button-secondary"
             type="button"
             onClick={async () => {
-              await navigator.clipboard.writeText(inviteUrl)
-              setNotice('通常参加URLをコピーしました。')
+              await navigator.clipboard.writeText(participantJoinUrl)
+              setNotice('通常参加 URL をコピーしました。')
             }}
           >
-            通常参加URLをコピー
+            参加 URL をコピー
           </button>
+          {isHost ? (
+            <button
+              className="button-secondary"
+              type="button"
+              onClick={async () => {
+                const shouldDelete = window.confirm(
+                  `「${eventRecord.event.name}」を削除します。元に戻せません。`,
+                )
+                if (!shouldDelete) {
+                  return
+                }
+
+                try {
+                  await deleteEvent(eventRecord.event.id)
+                  navigate('/')
+                } catch (caught) {
+                  setNotice(
+                    caught instanceof Error
+                      ? caught.message
+                      : 'イベント削除に失敗しました。',
+                  )
+                }
+              }}
+            >
+              イベント削除
+            </button>
+          ) : null}
         </div>
+
         {notice ? <div className="notice success">{notice}</div> : null}
       </section>
 
@@ -111,14 +151,38 @@ export function EventLobbyPage() {
               fixedBlockIndex,
               fixedSeed,
             })
-            setNotice('招待URLを発行しました。')
+            setNotice('招待 URL を発行しました。')
           } catch (caught) {
-            setNotice(caught instanceof Error ? caught.message : '招待作成に失敗しました。')
+            setNotice(
+              caught instanceof Error ? caught.message : '招待作成に失敗しました。',
+            )
           }
         }}
       />
 
-      <ParticipantList participants={eventRecord.participants} />
+      <ParticipantList
+        participants={eventRecord.participants}
+        canEdit={isHost}
+        maxBlockCount={eventRecord.event.blockCount}
+        maxSeed={eventRecord.event.participantsPerBlock}
+        onUpdateAssignment={async (participantId, assignedBlockIndex, assignedSeed) => {
+          try {
+            await updateParticipantAssignment(
+              eventRecord.event.id,
+              participantId,
+              assignedBlockIndex,
+              assignedSeed,
+            )
+            setNotice('参加者の配置を更新しました。')
+          } catch (caught) {
+            setNotice(
+              caught instanceof Error
+                ? caught.message
+                : '参加者の配置更新に失敗しました。',
+            )
+          }
+        }}
+      />
 
       <TournamentView
         blocks={eventRecord.blocks}
@@ -128,17 +192,23 @@ export function EventLobbyPage() {
         onUpdateBlockQualifiers={async (blockId, qualifiedParticipantIds) => {
           try {
             await updateBlockQualifiers(eventRecord.event.id, blockId, qualifiedParticipantIds)
-            setNotice('ブロック結果を更新しました。')
+            setNotice('勝ち上がり設定を更新しました。')
           } catch (caught) {
-            setNotice(caught instanceof Error ? caught.message : 'ブロック結果更新に失敗しました。')
+            setNotice(
+              caught instanceof Error
+                ? caught.message
+                : '勝ち上がり設定の更新に失敗しました。',
+            )
           }
         }}
         onPickWinner={async (matchId, winnerParticipantId) => {
           try {
             await updateMatchWinner(eventRecord.event.id, matchId, winnerParticipantId)
-            setNotice('勝者を更新しました。')
+            setNotice('試合結果を更新しました。')
           } catch (caught) {
-            setNotice(caught instanceof Error ? caught.message : '勝者更新に失敗しました。')
+            setNotice(
+              caught instanceof Error ? caught.message : '試合結果の更新に失敗しました。',
+            )
           }
         }}
       />

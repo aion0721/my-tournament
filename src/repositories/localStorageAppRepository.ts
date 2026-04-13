@@ -2,6 +2,7 @@ import { assignRandomSlot } from '../domain/assignment'
 import { createBlocksForEvent } from '../domain/blocks'
 import { createId } from '../domain/id'
 import { createEventInvite, createParticipantFromInvite, validateInviteSlot } from '../domain/invites'
+import { reassignParticipantSlot } from '../domain/participants'
 import type {
   AppState,
   CreateEventInput,
@@ -197,6 +198,17 @@ export class LocalStorageAppRepository implements AppRepository {
     return createdRecord
   }
 
+  async deleteEvent(eventId: string) {
+    updateState((state) => ({
+      ...state,
+      eventRecords: state.eventRecords.filter((record) => record.event.id !== eventId),
+      joinedParticipantIdsByEventId: Object.fromEntries(
+        Object.entries(state.joinedParticipantIdsByEventId).filter(([key]) => key !== eventId),
+      ),
+      storageMode: 'local' as const,
+    }))
+  }
+
   async createInvite(input: CreateInviteInput) {
     let createdInvite: EventInvite | null = null
 
@@ -358,6 +370,47 @@ export class LocalStorageAppRepository implements AppRepository {
     if (!updatedRecord) {
       throw new Error('招待参加に失敗しました。')
     }
+    return updatedRecord
+  }
+
+  async updateParticipantAssignment(
+    eventId: string,
+    participantId: string,
+    assignedBlockIndex: number,
+    assignedSeed: number,
+  ) {
+    let updatedRecord: EventRecord | null = null
+
+    updateState((state) => {
+      const eventRecord = findEventRecordById(state, eventId)
+      if (!eventRecord) {
+        throw new Error('イベントが見つかりません。')
+      }
+
+      const participants = reassignParticipantSlot(
+        eventRecord.participants,
+        eventRecord.blocks,
+        participantId,
+        assignedBlockIndex,
+        assignedSeed,
+      )
+
+      updatedRecord = {
+        ...eventRecord,
+        participants,
+        matches: recomputeMatches(eventRecord.blocks, participants, eventRecord.matches),
+      }
+
+      return {
+        ...replaceEventRecord(state, updatedRecord),
+        storageMode: 'local' as const,
+      }
+    })
+
+    if (!updatedRecord) {
+      throw new Error('参加者配置更新に失敗しました。')
+    }
+
     return updatedRecord
   }
 

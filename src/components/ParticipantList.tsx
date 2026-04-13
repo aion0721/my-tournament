@@ -1,15 +1,36 @@
+import { useState } from 'react'
 import type { Participant } from '../domain/models'
 
 interface ParticipantListProps {
   participants: Participant[]
+  canEdit?: boolean
+  maxBlockCount?: number
+  maxSeed?: number
+  onUpdateAssignment?: (
+    participantId: string,
+    assignedBlockIndex: number,
+    assignedSeed: number,
+  ) => Promise<void>
 }
 
-export function ParticipantList({ participants }: ParticipantListProps) {
+export function ParticipantList({
+  participants,
+  canEdit = false,
+  maxBlockCount = 0,
+  maxSeed = 0,
+  onUpdateAssignment,
+}: ParticipantListProps) {
+  const [drafts, setDrafts] = useState<Record<string, { blockIndex: number; seed: number }>>({})
+
   return (
     <section className="section-card stack">
       <div>
         <div className="section-title">参加者一覧</div>
-        <p className="muted">参加済みメンバーの現在の割当状況を表示します。</p>
+        <p className="muted">
+          {canEdit
+            ? 'ホストはここで参加者のブロックとシードを修正できます。'
+            : '参加済みメンバーの現在の割当状況を表示します。'}
+        </p>
       </div>
       {participants.length === 0 ? (
         <div className="empty-state">まだ参加者はいません。</div>
@@ -18,15 +39,74 @@ export function ParticipantList({ participants }: ParticipantListProps) {
           {participants
             .slice()
             .sort((left, right) => left.joinedAt.localeCompare(right.joinedAt))
-            .map((participant) => (
-              <div className="participant-row" key={participant.id}>
-                <div>
-                  <strong>{participant.name}</strong>
-                  <div className="muted">Block {participant.assignedBlockIndex + 1}</div>
+            .map((participant) => {
+              const draft = drafts[participant.id] ?? {
+                blockIndex: participant.assignedBlockIndex,
+                seed: participant.assignedSeed,
+              }
+
+              return (
+                <div className="participant-row" key={participant.id}>
+                  <div>
+                    <strong>{participant.name}</strong>
+                    <div className="muted">
+                      Block {participant.assignedBlockIndex + 1} / Seed {participant.assignedSeed}
+                    </div>
+                  </div>
+                  {canEdit ? (
+                    <div className="button-row">
+                      <input
+                        type="number"
+                        min={1}
+                        max={maxBlockCount}
+                        value={draft.blockIndex + 1}
+                        onChange={(event) =>
+                          setDrafts((current) => ({
+                            ...current,
+                            [participant.id]: {
+                              ...draft,
+                              blockIndex: Math.max(0, Number(event.target.value) - 1),
+                            },
+                          }))
+                        }
+                        style={{ width: 84 }}
+                      />
+                      <input
+                        type="number"
+                        min={1}
+                        max={maxSeed}
+                        value={draft.seed}
+                        onChange={(event) =>
+                          setDrafts((current) => ({
+                            ...current,
+                            [participant.id]: {
+                              ...draft,
+                              seed: Number(event.target.value),
+                            },
+                          }))
+                        }
+                        style={{ width: 84 }}
+                      />
+                      <button
+                        className="button-secondary"
+                        type="button"
+                        onClick={() =>
+                          void onUpdateAssignment?.(
+                            participant.id,
+                            draft.blockIndex,
+                            draft.seed,
+                          )
+                        }
+                      >
+                        配置変更
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="badge">Seed {participant.assignedSeed}</div>
+                  )}
                 </div>
-                <div className="badge">Seed {participant.assignedSeed}</div>
-              </div>
-            ))}
+              )
+            })}
         </div>
       )}
     </section>

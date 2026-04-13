@@ -46,6 +46,10 @@ export function AppStoreProvider({ children }: PropsWithChildren) {
         setState(appRepository.getState())
         return eventRecord.event.id
       },
+      deleteEvent: async (eventId) => {
+        await appService.deleteEvent(eventId)
+        setState(appRepository.getState())
+      },
       createInvite: async (input) => {
         await appService.createInvite(input)
         setState(appRepository.getState())
@@ -56,6 +60,20 @@ export function AppStoreProvider({ children }: PropsWithChildren) {
       },
       joinEventByInvite: async (inviteToken) => {
         await appService.joinEventByInvite(inviteToken)
+        setState(appRepository.getState())
+      },
+      updateParticipantAssignment: async (
+        eventId,
+        participantId,
+        assignedBlockIndex,
+        assignedSeed,
+      ) => {
+        await appService.updateParticipantAssignment(
+          eventId,
+          participantId,
+          assignedBlockIndex,
+          assignedSeed,
+        )
         setState(appRepository.getState())
       },
       updateBlockQualifiers: async (eventId, blockId, qualifiedParticipantIds) => {

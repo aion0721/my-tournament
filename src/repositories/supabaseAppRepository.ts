@@ -1,6 +1,7 @@
 import { assignRandomSlot } from '../domain/assignment'
 import { createId } from '../domain/id'
 import { createEventInvite, createParticipantFromInvite, validateInviteSlot } from '../domain/invites'
+import { reassignParticipantSlot } from '../domain/participants'
 import type {
   AppState,
   CreateEventInput,
@@ -248,6 +249,23 @@ export class SupabaseAppRepository implements AppRepository {
     return createdRecord
   }
 
+  async deleteEvent(eventId: string) {
+    const client = ensureSupabaseClient()
+    const result = await client.from('events').delete().eq('id', eventId)
+    if (result.error) {
+      throw result.error
+    }
+
+    this.updateSession((sessionState) => ({
+      ...sessionState,
+      joinedParticipantIdsByEventId: Object.fromEntries(
+        Object.entries(sessionState.joinedParticipantIdsByEventId).filter(([key]) => key !== eventId),
+      ),
+    }))
+
+    await this.refreshRemoteState()
+  }
+
   async createInvite(input: CreateInviteInput) {
     const client = ensureSupabaseClient()
     const eventRecord = this.state.eventRecords.find((record) => record.event.id === input.eventId)
@@ -448,6 +466,62 @@ export class SupabaseAppRepository implements AppRepository {
 
     await this.refreshRemoteState()
     return this.state.eventRecords.find((record) => record.event.id === eventRecord.event.id) ?? eventRecord
+  }
+
+  async updateParticipantAssignment(
+    eventId: string,
+    participantId: string,
+    assignedBlockIndex: number,
+    assignedSeed: number,
+  ) {
+    const client = ensureSupabaseClient()
+    const eventRecord = this.state.eventRecords.find((record) => record.event.id === eventId)
+    if (!eventRecord) {
+      throw new Error('イベントが見つかりません。')
+    }
+
+    const participants = reassignParticipantSlot(
+      eventRecord.participants,
+      eventRecord.blocks,
+      participantId,
+      assignedBlockIndex,
+      assignedSeed,
+    )
+    const nextMatches = recomputeMatches(eventRecord.blocks, participants, eventRecord.matches)
+
+    const participantResult = await client
+      .from('participants')
+      .update({
+        assigned_block_index: assignedBlockIndex,
+        assigned_seed: assignedSeed,
+      })
+      .eq('id', participantId)
+    if (participantResult.error) {
+      throw participantResult.error
+    }
+
+    const changedMatches = updateMatchRows(eventRecord, nextMatches)
+    const results = await Promise.all(
+      changedMatches.map((match) =>
+        client
+          .from('matches')
+          .update({
+            player1_participant_id: match.player1ParticipantId,
+            player2_participant_id: match.player2ParticipantId,
+            winner_participant_id: match.winnerParticipantId,
+            participant_ids: match.participantIds,
+            qualified_participant_ids: match.qualifiedParticipantIds,
+          })
+          .eq('id', match.id),
+      ),
+    )
+    const updateError = results.find((result) => result.error)?.error
+    if (updateError) {
+      throw updateError
+    }
+
+    await this.refreshRemoteState()
+    return this.state.eventRecords.find((record) => record.event.id === eventId) ?? eventRecord
   }
 
   async updateMatchWinner(eventId: string, matchId: string, winnerParticipantId: string | null) {

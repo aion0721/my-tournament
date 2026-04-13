@@ -24,6 +24,10 @@ export class AppService {
     return this.repository.createEvent(hostUserId, input)
   }
 
+  deleteEvent(eventId: string) {
+    return this.repository.deleteEvent(eventId)
+  }
+
   createInvite(input: CreateInviteInput) {
     return this.repository.createInvite(input)
   }
@@ -34,6 +38,20 @@ export class AppService {
 
   joinEventByInvite(inviteToken: string) {
     return this.repository.joinEventByInvite(inviteToken)
+  }
+
+  updateParticipantAssignment(
+    eventId: string,
+    participantId: string,
+    assignedBlockIndex: number,
+    assignedSeed: number,
+  ) {
+    return this.repository.updateParticipantAssignment(
+      eventId,
+      participantId,
+      assignedBlockIndex,
+      assignedSeed,
+    )
   }
 
   updateBlockQualifiers(eventId: string, blockId: string, qualifiedParticipantIds: string[]) {

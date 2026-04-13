@@ -8,9 +8,16 @@ export interface AppStoreValue {
   loginHost: (name: string) => Promise<void>
   logout: () => Promise<void>
   createEvent: (hostUserId: string, input: CreateEventInput) => Promise<string>
+  deleteEvent: (eventId: string) => Promise<void>
   createInvite: (input: CreateInviteInput) => Promise<void>
   joinEvent: (shareToken: string, participantName: string) => Promise<void>
   joinEventByInvite: (inviteToken: string) => Promise<void>
+  updateParticipantAssignment: (
+    eventId: string,
+    participantId: string,
+    assignedBlockIndex: number,
+    assignedSeed: number,
+  ) => Promise<void>
   updateBlockQualifiers: (
     eventId: string,
     blockId: string,
