@@ -1,0 +1,166 @@
+import { useMemo, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import { TournamentView } from '../components/TournamentView'
+import { getParticipantFirstMatch } from '../domain/tournament'
+import { useAppStore } from '../hooks/useAppStore'
+
+export function InviteJoinPage() {
+  const { inviteToken } = useParams()
+  const { state, isReady, joinEventByInvite } = useAppStore()
+  const [notice, setNotice] = useState<string | null>(null)
+
+  const invite = useMemo(
+    () =>
+      state.eventRecords
+        .flatMap((record) => record.invites)
+        .find((candidate) => candidate.inviteToken === inviteToken) ?? null,
+    [inviteToken, state.eventRecords],
+  )
+
+  const eventRecord = useMemo(
+    () =>
+      invite
+        ? state.eventRecords.find((record) => record.event.id === invite.eventId) ?? null
+        : null,
+    [invite, state.eventRecords],
+  )
+
+  const joinedParticipant = useMemo(() => {
+    if (!eventRecord) {
+      return null
+    }
+    const participantId = state.joinedParticipantIdsByEventId[eventRecord.event.id]
+    return eventRecord.participants.find((participant) => participant.id === participantId) ?? null
+  }, [eventRecord, state.joinedParticipantIdsByEventId])
+
+  if (!isReady) {
+    return (
+      <main className="page">
+        <section className="section-card">
+          <div className="section-title">読み込み中</div>
+          <p className="muted">招待情報を取得しています。</p>
+        </section>
+      </main>
+    )
+  }
+
+  if (!invite || !eventRecord) {
+    return (
+      <main className="page">
+        <section className="section-card">
+          <div className="section-title">招待が見つかりません</div>
+          <p className="muted">招待URLが正しいか確認してください。</p>
+        </section>
+      </main>
+    )
+  }
+
+  const firstMatch = joinedParticipant
+    ? getParticipantFirstMatch(joinedParticipant, eventRecord.matches)
+    : null
+
+  return (
+    <main className="page">
+      <section className="hero-panel stack">
+        <div className="page-heading">
+          <div>
+            <span className="eyebrow">Invite Join</span>
+            <h1>{eventRecord.event.name}</h1>
+            <p className="lead">
+              {invite.displayName} さん向けの招待参加です。
+              {invite.fixedBlockIndex !== null && invite.fixedSeed !== null
+                ? ` 固定枠は Block ${invite.fixedBlockIndex + 1} / Seed ${invite.fixedSeed} です。`
+                : ' 枠は参加時に確定します。'}
+            </p>
+          </div>
+          <div className="topbar-links">
+            <Link className="chip-button" to={`/events/${eventRecord.event.id}`}>
+              ホスト画面を見る
+            </Link>
+            <Link className="chip-button" to={`/join/${eventRecord.event.shareToken}`}>
+              通常参加画面へ
+            </Link>
+          </div>
+        </div>
+        {notice ? <div className="notice success">{notice}</div> : null}
+      </section>
+
+      <div className="grid-2">
+        <section className="section-card stack">
+          <div>
+            <div className="section-title">招待参加を確定</div>
+            <p className="muted">
+              事前登録された名前で参加します。名前入力は不要です。
+            </p>
+          </div>
+          <div className="notice">
+            <strong>{invite.displayName}</strong>
+          </div>
+          <div className="button-row">
+            <button
+              className="button"
+              type="button"
+              disabled={invite.status === 'joined'}
+              onClick={async () => {
+                try {
+                  await joinEventByInvite(invite.inviteToken)
+                  setNotice('招待参加を確定しました。')
+                } catch (caught) {
+                  setNotice(caught instanceof Error ? caught.message : '招待参加に失敗しました。')
+                }
+              }}
+            >
+              {invite.status === 'joined' ? '参加済み' : '招待参加する'}
+            </button>
+          </div>
+        </section>
+
+        <section className="section-card stack">
+          <div>
+            <div className="section-title">自分の参加情報</div>
+            <p className="muted">このブラウザで招待参加した参加者情報を表示します。</p>
+          </div>
+          {joinedParticipant ? (
+            <>
+              <div className="stat-grid">
+                <div className="stat-card">
+                  <div className="stat-label">名前</div>
+                  <div className="stat-value">{joinedParticipant.name}</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-label">所属ブロック</div>
+                  <div className="stat-value">B{joinedParticipant.assignedBlockIndex + 1}</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-label">シード</div>
+                  <div className="stat-value">{joinedParticipant.assignedSeed}</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-label">初戦</div>
+                  <div className="stat-value">
+                    {firstMatch ? `R${firstMatch.roundIndex + 1}-M${firstMatch.matchIndex + 1}` : '-'}
+                  </div>
+                </div>
+              </div>
+              <div className="notice success">
+                招待参加として Block {joinedParticipant.assignedBlockIndex + 1} / Seed{' '}
+                {joinedParticipant.assignedSeed} に登録されています。
+              </div>
+            </>
+          ) : (
+            <div className="empty-state">招待参加後に自分のブロック情報を表示します。</div>
+          )}
+        </section>
+      </div>
+
+      <TournamentView
+        blocks={eventRecord.blocks}
+        matches={eventRecord.matches}
+        participants={eventRecord.participants}
+        canEdit={false}
+        onUpdateBlockQualifiers={() => {}}
+        onPickWinner={() => {}}
+      />
+    </main>
+  )
+}
