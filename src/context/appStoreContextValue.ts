@@ -7,6 +7,7 @@ export interface AppStoreValue {
   isReady: boolean
   loginHost: (name: string) => Promise<void>
   logout: () => Promise<void>
+  logoutParticipant: (eventId: string) => Promise<void>
   createEvent: (hostUserId: string, input: CreateEventInput) => Promise<string>
   deleteEvent: (eventId: string) => Promise<void>
   createInvite: (input: CreateInviteInput) => Promise<void>

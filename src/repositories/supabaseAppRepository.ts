@@ -227,6 +227,15 @@ export class SupabaseAppRepository implements AppRepository {
     this.updateSession((sessionState) => ({ ...sessionState, currentUserId: null }))
   }
 
+  async logoutParticipant(eventId: string) {
+    this.updateSession((sessionState) => ({
+      ...sessionState,
+      joinedParticipantIdsByEventId: Object.fromEntries(
+        Object.entries(sessionState.joinedParticipantIdsByEventId).filter(([key]) => key !== eventId),
+      ),
+    }))
+  }
+
   async createEvent(hostUserId: string, input: CreateEventInput) {
     const client = ensureSupabaseClient()
     const built = buildEventTournament(hostUserId, input)

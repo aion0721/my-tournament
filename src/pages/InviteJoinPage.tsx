@@ -6,7 +6,7 @@ import { useAppStore } from '../hooks/useAppStore'
 
 export function InviteJoinPage() {
   const { inviteToken } = useParams()
-  const { state, isReady, joinEventByInvite } = useAppStore()
+  const { state, isReady, joinEventByInvite, logoutParticipant } = useAppStore()
   const [notice, setNotice] = useState<string | null>(null)
 
   const invite = useMemo(
@@ -49,7 +49,7 @@ export function InviteJoinPage() {
       <main className="page">
         <section className="section-card">
           <div className="section-title">招待が見つかりません</div>
-          <p className="muted">招待URLが正しいか確認してください。</p>
+          <p className="muted">招待 URL が正しいか確認してください。</p>
         </section>
       </main>
     )
@@ -67,7 +67,7 @@ export function InviteJoinPage() {
             <span className="eyebrow">Invite Join</span>
             <h1>{eventRecord.event.name}</h1>
             <p className="lead">
-              {invite.displayName} さん向けの招待参加です。
+              {invite.displayName} さん向けの招待参加ページです。
               {invite.fixedBlockIndex !== null && invite.fixedSeed !== null
                 ? ` 固定枠は Block ${invite.fixedBlockIndex + 1} / Seed ${invite.fixedSeed} です。`
                 : ' 枠は参加時に確定します。'}
@@ -78,7 +78,7 @@ export function InviteJoinPage() {
               ホスト画面を見る
             </Link>
             <Link className="chip-button" to={`/join/${eventRecord.event.shareToken}`}>
-              通常参加画面へ
+              通常参加画面
             </Link>
           </div>
         </div>
@@ -90,7 +90,7 @@ export function InviteJoinPage() {
           <div>
             <div className="section-title">招待参加を確定</div>
             <p className="muted">
-              事前登録された名前で参加します。名前入力は不要です。
+              主催者が登録した名前で参加します。名前入力は不要です。
             </p>
           </div>
           <div className="notice">
@@ -106,7 +106,9 @@ export function InviteJoinPage() {
                   await joinEventByInvite(invite.inviteToken)
                   setNotice('招待参加を確定しました。')
                 } catch (caught) {
-                  setNotice(caught instanceof Error ? caught.message : '招待参加に失敗しました。')
+                  setNotice(
+                    caught instanceof Error ? caught.message : '招待参加に失敗しました。',
+                  )
                 }
               }}
             >
@@ -143,12 +145,26 @@ export function InviteJoinPage() {
                 </div>
               </div>
               <div className="notice success">
-                招待参加として Block {joinedParticipant.assignedBlockIndex + 1} / Seed{' '}
-                {joinedParticipant.assignedSeed} に登録されています。
+                Block {joinedParticipant.assignedBlockIndex + 1} / Seed{' '}
+                {joinedParticipant.assignedSeed} で参加中です。
+              </div>
+              <div className="button-row">
+                <button
+                  className="button-secondary"
+                  type="button"
+                  onClick={async () => {
+                    await logoutParticipant(eventRecord.event.id)
+                    setNotice('このブラウザの参加セッションを解除しました。')
+                  }}
+                >
+                  参加者ログアウト
+                </button>
               </div>
             </>
           ) : (
-            <div className="empty-state">招待参加後に自分のブロック情報を表示します。</div>
+            <div className="empty-state">
+              招待参加後に自分のブロックと初戦情報を表示します。
+            </div>
           )}
         </section>
       </div>

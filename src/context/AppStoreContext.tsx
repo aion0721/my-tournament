@@ -41,6 +41,10 @@ export function AppStoreProvider({ children }: PropsWithChildren) {
         await appService.logout()
         setState(appRepository.getState())
       },
+      logoutParticipant: async (eventId) => {
+        await appService.logoutParticipant(eventId)
+        setState(appRepository.getState())
+      },
       createEvent: async (hostUserId, input) => {
         const eventRecord = await appService.createEvent(hostUserId, input)
         setState(appRepository.getState())

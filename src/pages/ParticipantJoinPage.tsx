@@ -7,7 +7,7 @@ import { useAppStore } from '../hooks/useAppStore'
 
 export function ParticipantJoinPage() {
   const { shareToken } = useParams()
-  const { state, isReady, joinEvent } = useAppStore()
+  const { state, isReady, joinEvent, logoutParticipant } = useAppStore()
   const [notice, setNotice] = useState<string | null>(null)
 
   const eventRecord = useMemo(
@@ -39,7 +39,7 @@ export function ParticipantJoinPage() {
       <main className="page">
         <section className="section-card">
           <div className="section-title">イベントが見つかりません</div>
-          <p className="muted">共有URLが正しいか確認してください。</p>
+          <p className="muted">共有 URL が正しいか確認してください。</p>
         </section>
       </main>
     )
@@ -58,7 +58,7 @@ export function ParticipantJoinPage() {
             <span className="eyebrow">Open Join</span>
             <h1>{eventRecord.event.name}</h1>
             <p className="lead">
-              通常参加の導線です。名前を入力すると空き枠へランダムで割り当てられます。
+              共有 URL から参加できます。名前を入力すると空き枠にランダムで割り当てられます。
             </p>
           </div>
           <div className="topbar-links">
@@ -80,9 +80,11 @@ export function ParticipantJoinPage() {
           onJoin={async (name) => {
             try {
               await joinEvent(eventRecord.event.shareToken, name)
-              setNotice('通常参加で登録しました。')
+              setNotice('イベントに参加しました。')
             } catch (caught) {
-              setNotice(caught instanceof Error ? caught.message : '参加登録に失敗しました。')
+              setNotice(
+                caught instanceof Error ? caught.message : '参加登録に失敗しました。',
+              )
             }
           }}
         />
@@ -90,7 +92,7 @@ export function ParticipantJoinPage() {
         <section className="section-card stack">
           <div>
             <div className="section-title">自分の参加情報</div>
-            <p className="muted">このブラウザから通常参加した参加者情報を表示します。</p>
+            <p className="muted">このブラウザで参加した参加者情報を表示します。</p>
           </div>
           {joinedParticipant ? (
             <>
@@ -115,12 +117,26 @@ export function ParticipantJoinPage() {
                 </div>
               </div>
               <div className="notice success">
-                Block {joinedParticipant.assignedBlockIndex + 1} の Seed {joinedParticipant.assignedSeed}
-                に割り当て済みです。
+                Block {joinedParticipant.assignedBlockIndex + 1} / Seed{' '}
+                {joinedParticipant.assignedSeed} に参加中です。
+              </div>
+              <div className="button-row">
+                <button
+                  className="button-secondary"
+                  type="button"
+                  onClick={async () => {
+                    await logoutParticipant(eventRecord.event.id)
+                    setNotice('このブラウザの参加セッションを解除しました。')
+                  }}
+                >
+                  参加者ログアウト
+                </button>
               </div>
             </>
           ) : (
-            <div className="empty-state">参加後に自分のブロックと初戦情報を表示します。</div>
+            <div className="empty-state">
+              参加後に自分のブロックと初戦情報を表示します。
+            </div>
           )}
         </section>
       </div>

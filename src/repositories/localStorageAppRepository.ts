@@ -172,6 +172,16 @@ export class LocalStorageAppRepository implements AppRepository {
     updateState((state) => ({ ...state, currentUserId: null, storageMode: 'local' as const }))
   }
 
+  async logoutParticipant(eventId: string) {
+    updateState((state) => ({
+      ...state,
+      joinedParticipantIdsByEventId: Object.fromEntries(
+        Object.entries(state.joinedParticipantIdsByEventId).filter(([key]) => key !== eventId),
+      ),
+      storageMode: 'local' as const,
+    }))
+  }
+
   async createEvent(hostUserId: string, input: CreateEventInput) {
     let createdRecord: EventRecord | null = null
 

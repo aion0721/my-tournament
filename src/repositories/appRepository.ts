@@ -14,6 +14,7 @@ export interface AppRepository {
   subscribe(listener: () => void): () => void
   loginHost(name: string): Promise<User>
   logout(): Promise<void>
+  logoutParticipant(eventId: string): Promise<void>
   createEvent(hostUserId: string, input: CreateEventInput): Promise<EventRecord>
   deleteEvent(eventId: string): Promise<void>
   createInvite(input: CreateInviteInput): Promise<EventInvite>

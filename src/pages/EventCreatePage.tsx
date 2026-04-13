@@ -39,8 +39,7 @@ export function EventCreatePage() {
             <h1>大会イベントを作成して共有できます</h1>
             <p className="lead">
               主催者はイベント作成と管理、参加者は共有 URL から参加できます。保存先は
-              {state.storageMode === 'supabase' ? ' Supabase' : ' localStorage'}
-              です。
+              {state.storageMode === 'supabase' ? ' Supabase' : ' localStorage'} です。
             </p>
           </div>
           {currentUserName ? (

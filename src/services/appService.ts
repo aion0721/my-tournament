@@ -20,6 +20,10 @@ export class AppService {
     this.repository.logout()
   }
 
+  logoutParticipant(eventId: string) {
+    return this.repository.logoutParticipant(eventId)
+  }
+
   createEvent(hostUserId: string, input: CreateEventInput) {
     return this.repository.createEvent(hostUserId, input)
   }
