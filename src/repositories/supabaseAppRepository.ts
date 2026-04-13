@@ -518,20 +518,69 @@ export class SupabaseAppRepository implements AppRepository {
       )
     })
 
-    const participantResults = await Promise.all(
-      changedParticipants.map((participant) =>
-        client
-          .from('participants')
-          .update({
-            assigned_block_index: participant.assignedBlockIndex,
-            assigned_seed: participant.assignedSeed,
-          })
-          .eq('id', participant.id),
-      ),
-    )
-    const participantUpdateError = participantResults.find((result) => result.error)?.error
-    if (participantUpdateError) {
-      throw participantUpdateError
+    if (changedParticipants.length === 2) {
+      const movingParticipant = participants.find((participant) => participant.id === participantId)
+      const swappedParticipant = changedParticipants.find(
+        (participant) => participant.id !== participantId,
+      )
+      const originalParticipant = eventRecord.participants.find(
+        (participant) => participant.id === participantId,
+      )
+
+      if (!movingParticipant || !swappedParticipant || !originalParticipant) {
+        throw new Error('参加者配置の更新対象を特定できませんでした。')
+      }
+
+      const temporarySeed = eventRecord.event.participantsPerBlock + 1
+
+      const temporaryResult = await client
+        .from('participants')
+        .update({
+          assigned_block_index: originalParticipant.assignedBlockIndex,
+          assigned_seed: temporarySeed,
+        })
+        .eq('id', participantId)
+      if (temporaryResult.error) {
+        throw temporaryResult.error
+      }
+
+      const swapResult = await client
+        .from('participants')
+        .update({
+          assigned_block_index: swappedParticipant.assignedBlockIndex,
+          assigned_seed: swappedParticipant.assignedSeed,
+        })
+        .eq('id', swappedParticipant.id)
+      if (swapResult.error) {
+        throw swapResult.error
+      }
+
+      const finalResult = await client
+        .from('participants')
+        .update({
+          assigned_block_index: movingParticipant.assignedBlockIndex,
+          assigned_seed: movingParticipant.assignedSeed,
+        })
+        .eq('id', participantId)
+      if (finalResult.error) {
+        throw finalResult.error
+      }
+    } else {
+      const participantResults = await Promise.all(
+        changedParticipants.map((participant) =>
+          client
+            .from('participants')
+            .update({
+              assigned_block_index: participant.assignedBlockIndex,
+              assigned_seed: participant.assignedSeed,
+            })
+            .eq('id', participant.id),
+        ),
+      )
+      const participantUpdateError = participantResults.find((result) => result.error)?.error
+      if (participantUpdateError) {
+        throw participantUpdateError
+      }
     }
 
     const changedMatches = updateMatchRows(eventRecord, nextMatches)
