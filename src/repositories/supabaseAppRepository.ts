@@ -149,13 +149,14 @@ export class SupabaseAppRepository implements AppRepository {
   private async readCurrentAuthContext() {
     const client = ensureSupabaseClient()
     const {
-      data: { user: authUser },
-      error: authError,
-    } = await client.auth.getUser()
-    if (authError) {
-      throw authError
+      data: { session },
+      error: sessionError,
+    } = await client.auth.getSession()
+    if (sessionError) {
+      throw sessionError
     }
 
+    const authUser = session?.user ?? null
     if (!authUser) {
       return {
         authUser: null,
@@ -334,12 +335,13 @@ export class SupabaseAppRepository implements AppRepository {
   async createEvent(input: CreateEventInput) {
     const client = ensureSupabaseClient()
     const {
-      data: { user: authUser },
-      error: authError,
-    } = await client.auth.getUser()
-    if (authError) {
-      throw authError
+      data: { session },
+      error: sessionError,
+    } = await client.auth.getSession()
+    if (sessionError) {
+      throw sessionError
     }
+    const authUser = session?.user ?? null
     if (!authUser) {
       throw new Error('イベント作成には主催者ログインが必要です。')
     }
