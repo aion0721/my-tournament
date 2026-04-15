@@ -18,6 +18,8 @@ export function EventCreatePage() {
     deleteEvent,
   } = useAppStore()
   const [error, setError] = useState<string | null>(null)
+  const [isSendingLoginLink, setIsSendingLoginLink] = useState(false)
+  const [deletingEventId, setDeletingEventId] = useState<string | null>(null)
 
   const hostEvents = useMemo(
     () =>
@@ -74,8 +76,10 @@ export function EventCreatePage() {
       <div className="grid-2">
         <HostAuthCard
           currentUser={currentUser}
+          isSendingLoginLink={isSendingLoginLink}
           onSignInWithOtp={async (email) => {
             try {
+              setIsSendingLoginLink(true)
               setError(null)
               await signInWithOtp(email)
               setError('ログインリンクを送信しました。メールを確認してください。')
@@ -83,6 +87,8 @@ export function EventCreatePage() {
               setError(
                 caught instanceof Error ? caught.message : 'ログインリンクの送信に失敗しました。',
               )
+            } finally {
+              setIsSendingLoginLink(false)
             }
           }}
           onLogout={() => void logout()}
@@ -139,6 +145,7 @@ export function EventCreatePage() {
                   <button
                     className="button-secondary"
                     type="button"
+                    disabled={deletingEventId === event.id}
                     onClick={async () => {
                       const shouldDelete = window.confirm(
                         `「${event.name}」を削除します。元に戻せません。`,
@@ -148,16 +155,19 @@ export function EventCreatePage() {
                       }
 
                       try {
+                        setDeletingEventId(event.id)
                         setError(null)
                         await deleteEvent(event.id)
                       } catch (caught) {
                         setError(
                           caught instanceof Error ? caught.message : 'イベント削除に失敗しました。',
                         )
+                      } finally {
+                        setDeletingEventId(null)
                       }
                     }}
                   >
-                    イベント削除
+                    {deletingEventId === event.id ? 'Loading...' : 'イベント削除'}
                   </button>
                 </div>
               </div>

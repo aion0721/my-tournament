@@ -3,12 +3,14 @@ import type { UserProfile } from '../domain/models'
 
 interface HostAuthCardProps {
   currentUser: UserProfile | null
+  isSendingLoginLink: boolean
   onSignInWithOtp: (email: string) => void
   onLogout: () => void
 }
 
 export function HostAuthCard({
   currentUser,
+  isSendingLoginLink,
   onSignInWithOtp,
   onLogout,
 }: HostAuthCardProps) {
@@ -54,8 +56,13 @@ export function HostAuthCard({
             />
           </div>
           <div className="button-row">
-            <button className="button" type="button" onClick={() => onSignInWithOtp(email)}>
-              ログインリンクを送信
+            <button
+              className="button"
+              type="button"
+              disabled={isSendingLoginLink}
+              onClick={() => onSignInWithOtp(email)}
+            >
+              {isSendingLoginLink ? 'Loading...' : 'ログインリンクを送信'}
             </button>
           </div>
         </div>

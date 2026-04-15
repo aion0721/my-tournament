@@ -22,6 +22,7 @@ export function EventLobbyPage() {
   } = useAppStore()
   const [notice, setNotice] = useState<string | null>(null)
   const [isQrOpen, setIsQrOpen] = useState(false)
+  const [isDeletingEvent, setIsDeletingEvent] = useState(false)
 
   const eventRecord = useMemo(
     () => state.eventRecords.find((record) => record.event.id === eventId) ?? null,
@@ -132,6 +133,7 @@ export function EventLobbyPage() {
             <button
               className="button-secondary"
               type="button"
+              disabled={isDeletingEvent}
               onClick={async () => {
                 const shouldDelete = window.confirm(
                   `「${eventRecord.event.name}」を削除します。元に戻せません。`,
@@ -141,6 +143,7 @@ export function EventLobbyPage() {
                 }
 
                 try {
+                  setIsDeletingEvent(true)
                   await deleteEvent(eventRecord.event.id)
                   navigate('/')
                 } catch (caught) {
@@ -149,10 +152,12 @@ export function EventLobbyPage() {
                       ? caught.message
                       : 'イベント削除に失敗しました。',
                   )
+                } finally {
+                  setIsDeletingEvent(false)
                 }
               }}
             >
-              イベント削除
+              {isDeletingEvent ? 'Loading...' : 'イベント削除'}
             </button>
           ) : null}
         </div>
