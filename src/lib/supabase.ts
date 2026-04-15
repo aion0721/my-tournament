@@ -50,6 +50,30 @@ export interface Database {
         }>
         Relationships: []
       }
+      profiles: {
+        Row: {
+          id: string
+          display_name: string
+          role: 'host' | 'admin'
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          display_name: string
+          role?: 'host' | 'admin'
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<{
+          id: string
+          display_name: string
+          role: 'host' | 'admin'
+          created_at: string
+          updated_at: string
+        }>
+        Relationships: []
+      }
       participants: {
         Row: {
           id: string

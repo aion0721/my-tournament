@@ -4,7 +4,8 @@ import type {
   CreateEventInput,
   EventRecord,
   EventInvite,
-  User,
+  UserProfile,
+  UserRole,
 } from '../domain/models'
 
 export interface AppRepository {
@@ -12,13 +13,15 @@ export interface AppRepository {
   initialize(): Promise<void>
   getState(): AppState
   subscribe(listener: () => void): () => void
-  loginHost(name: string): Promise<User>
+  signInWithOtp(email: string): Promise<void>
   logout(): Promise<void>
   logoutParticipant(eventId: string): Promise<void>
   selectParticipantSession(eventId: string, participantId: string): Promise<void>
-  createEvent(hostUserId: string, input: CreateEventInput): Promise<EventRecord>
+  createEvent(input: CreateEventInput): Promise<EventRecord>
   deleteEvent(eventId: string): Promise<void>
   createInvite(input: CreateInviteInput): Promise<EventInvite>
+  listProfiles(): Promise<UserProfile[]>
+  updateUserRole(userId: string, role: UserRole): Promise<void>
   getEventRecordById(eventId: string): Promise<EventRecord | null>
   getEventRecordByShareToken(shareToken: string): Promise<EventRecord | null>
   getInviteByToken(inviteToken: string): Promise<EventInvite | null>

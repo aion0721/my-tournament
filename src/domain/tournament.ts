@@ -56,7 +56,7 @@ export function validateCreateEventInput(
   }
 }
 
-function createInitialEvent(hostUserId: string, input: CreateEventInput) {
+function createInitialEvent(hostUserId: string, hostAuthUserId: string, input: CreateEventInput) {
   const validation = validateCreateEventInput(input)
   if (!validation.valid) {
     throw new Error(validation.issues[0])
@@ -66,7 +66,7 @@ function createInitialEvent(hostUserId: string, input: CreateEventInput) {
     id: createId('event'),
     name: input.name.trim(),
     hostUserId,
-    hostAuthUserId: null,
+    hostAuthUserId,
     capacity: input.capacity,
     participantsPerBlock: input.participantsPerBlock,
     winnersPerBlock: input.winnersPerBlock,
@@ -180,8 +180,8 @@ function buildStagePlan(event: Event, blocks: Block[]) {
   return allStages
 }
 
-export function buildEventTournament(hostUserId: string, input: CreateEventInput) {
-  const { event, blocks } = createInitialEvent(hostUserId, input)
+export function buildEventTournament(hostUserId: string, hostAuthUserId: string, input: CreateEventInput) {
+  const { event, blocks } = createInitialEvent(hostUserId, hostAuthUserId, input)
   const matches = buildStagePlan(event, blocks)
 
   return {

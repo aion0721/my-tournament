@@ -27,14 +27,16 @@ export function AppStoreProvider({ children }: PropsWithChildren) {
   }, [])
 
   const value = useMemo<AppStoreValue>(() => {
-    const currentUser = state.users.find((user) => user.id === state.currentUserId) ?? null
+    const currentUser = state.currentUser
 
     return {
       state,
-      currentUserName: currentUser?.name ?? null,
+      currentUser,
+      currentUserName: currentUser?.displayName ?? null,
+      isAdmin: currentUser?.role === 'admin',
       isReady,
-      loginHost: async (name) => {
-        await appService.loginHost(name)
+      signInWithOtp: async (email) => {
+        await appService.signInWithOtp(email)
         setState(appRepository.getState())
       },
       logout: async () => {
@@ -49,8 +51,8 @@ export function AppStoreProvider({ children }: PropsWithChildren) {
         await appService.selectParticipantSession(eventId, participantId)
         setState(appRepository.getState())
       },
-      createEvent: async (hostUserId, input) => {
-        const eventRecord = await appService.createEvent(hostUserId, input)
+      createEvent: async (input) => {
+        const eventRecord = await appService.createEvent(input)
         setState(appRepository.getState())
         return eventRecord.event.id
       },
@@ -60,6 +62,15 @@ export function AppStoreProvider({ children }: PropsWithChildren) {
       },
       createInvite: async (input) => {
         await appService.createInvite(input)
+        setState(appRepository.getState())
+      },
+      listProfiles: async () => {
+        const profiles = await appService.listProfiles()
+        setState(appRepository.getState())
+        return profiles
+      },
+      updateUserRole: async (userId, role) => {
+        await appService.updateUserRole(userId, role)
         setState(appRepository.getState())
       },
       joinEvent: async (shareToken, participantName) => {

@@ -55,7 +55,9 @@ export function EventLobbyPage() {
   }
 
   const participantJoinUrl = `${window.location.origin}/join/${eventRecord.event.shareToken}`
-  const isHost = state.currentUserId === eventRecord.event.hostUserId
+  const isHost =
+    state.currentUser?.role === 'admin' ||
+    state.currentAuthUserId === eventRecord.event.hostAuthUserId
 
   return (
     <main className="page">
@@ -155,6 +157,10 @@ export function EventLobbyPage() {
           ) : null}
         </div>
 
+        {state.currentUser?.role === 'admin' &&
+        state.currentAuthUserId !== eventRecord.event.hostAuthUserId ? (
+          <div className="notice">管理者権限で編集中です。</div>
+        ) : null}
         {notice ? <div className="notice success">{notice}</div> : null}
       </section>
 

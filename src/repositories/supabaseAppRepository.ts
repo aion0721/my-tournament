@@ -8,10 +8,11 @@ import type {
   CreateInviteInput,
   EventRecord,
   Participant,
-  User,
+  UserProfile,
+  UserRole,
 } from '../domain/models'
 import { buildEventTournament, recomputeMatches, setBlockQualifiers, setMatchWinner } from '../domain/tournament'
-import { supabase } from '../lib/supabase'
+import { supabase, type Database } from '../lib/supabase'
 import type { AppRepository } from './appRepository'
 import {
   buildEventRecords,
@@ -21,19 +22,17 @@ import {
   mapParticipantToInsert,
 } from './supabaseMappers'
 
-const SESSION_KEY = 'tournament-mvp-session-v2'
+const SESSION_KEY = 'tournament-mvp-session-v3'
 
 interface SessionState {
-  users: User[]
-  currentUserId: string | null
   joinedParticipantIdsByEventId: Record<string, string>
 }
 
 const initialSessionState: SessionState = {
-  users: [],
-  currentUserId: null,
   joinedParticipantIdsByEventId: {},
 }
+
+type ProfileRow = Database['public']['Tables']['profiles']['Row']
 
 function readSessionState() {
   if (typeof window === 'undefined') {
@@ -64,20 +63,37 @@ function ensureSupabaseClient() {
   return supabase
 }
 
-function mergeState(sessionState: SessionState, eventRecords: EventRecord[]): AppState {
+function getFallbackDisplayName(email: string | undefined, userId: string) {
+  const localPart = email?.split('@')[0]?.trim()
+  return localPart || `user-${userId.slice(0, 8)}`
+}
+
+function mapProfileRow(row: ProfileRow): UserProfile {
   return {
-    users: sessionState.users,
-    currentUserId: sessionState.currentUserId,
-    joinedParticipantIdsByEventId: sessionState.joinedParticipantIdsByEventId,
-    eventRecords,
+    id: row.id,
+    displayName: row.display_name,
+    role: row.role,
+  }
+}
+
+function mergeState(params: {
+  sessionState: SessionState
+  eventRecords: EventRecord[]
+  profiles: UserProfile[]
+  currentUser: UserProfile | null
+  currentAuthUserId: string | null
+}): AppState {
+  return {
+    profiles: params.profiles,
+    currentUser: params.currentUser,
+    currentAuthUserId: params.currentAuthUserId,
+    joinedParticipantIdsByEventId: params.sessionState.joinedParticipantIdsByEventId,
+    eventRecords: params.eventRecords,
     storageMode: 'supabase',
   }
 }
 
-function updateMatchRows(
-  eventRecord: EventRecord,
-  matches: EventRecord['matches'],
-) {
+function updateMatchRows(eventRecord: EventRecord, matches: EventRecord['matches']) {
   const currentMap = new Map(eventRecord.matches.map((match) => [match.id, match]))
   return matches.filter((match) => {
     const current = currentMap.get(match.id)
@@ -94,9 +110,16 @@ function updateMatchRows(
 
 export class SupabaseAppRepository implements AppRepository {
   readonly mode = 'supabase' as const
-  private state: AppState = mergeState(initialSessionState, [])
+  private state: AppState = mergeState({
+    sessionState: initialSessionState,
+    eventRecords: [],
+    profiles: [],
+    currentUser: null,
+    currentAuthUserId: null,
+  })
   private listeners = new Set<() => void>()
   private unsubscribeRealtime: (() => void) | null = null
+  private unsubscribeAuth: (() => void) | null = null
 
   private emit() {
     for (const listener of this.listeners) {
@@ -112,13 +135,70 @@ export class SupabaseAppRepository implements AppRepository {
   private updateSession(mutator: (current: SessionState) => SessionState) {
     const nextSession = mutator(readSessionState())
     writeSessionState(nextSession)
-    this.state = mergeState(nextSession, this.state.eventRecords)
+    this.state = mergeState({
+      sessionState: nextSession,
+      eventRecords: this.state.eventRecords,
+      profiles: this.state.profiles,
+      currentUser: this.state.currentUser,
+      currentAuthUserId: this.state.currentAuthUserId,
+    })
     this.emit()
     return nextSession
   }
 
+  private async readCurrentAuthContext() {
+    const client = ensureSupabaseClient()
+    const {
+      data: { user: authUser },
+      error: authError,
+    } = await client.auth.getUser()
+    if (authError) {
+      throw authError
+    }
+
+    if (!authUser) {
+      return {
+        authUser: null,
+        profiles: [] as UserProfile[],
+        currentUser: null as UserProfile | null,
+      }
+    }
+
+    const ownProfileResult = await client.from('profiles').select('*').eq('id', authUser.id).maybeSingle()
+    if (ownProfileResult.error) {
+      throw ownProfileResult.error
+    }
+
+    const ownProfile = ownProfileResult.data ? mapProfileRow(ownProfileResult.data) : null
+    const currentUser: UserProfile = ownProfile ?? {
+      id: authUser.id,
+      displayName: getFallbackDisplayName(authUser.email, authUser.id),
+      role: 'host',
+    }
+
+    if (currentUser.role === 'admin') {
+      const profilesResult = await client.from('profiles').select('*').order('created_at', { ascending: true })
+      if (profilesResult.error) {
+        throw profilesResult.error
+      }
+
+      return {
+        authUser,
+        profiles: (profilesResult.data ?? []).map(mapProfileRow),
+        currentUser,
+      }
+    }
+
+    return {
+      authUser,
+      profiles: ownProfile ? [ownProfile] : [currentUser],
+      currentUser,
+    }
+  }
+
   private async refreshRemoteState() {
     const client = ensureSupabaseClient()
+    const authContext = await this.readCurrentAuthContext()
     const [eventsResult, participantsResult, invitesResult, matchesResult] = await Promise.all([
       client.from('events').select('*').order('created_at', { ascending: false }),
       client.from('participants').select('*').order('joined_at', { ascending: true }),
@@ -138,11 +218,31 @@ export class SupabaseAppRepository implements AppRepository {
       matchesResult.data ?? [],
     )
 
-    this.setState(mergeState(readSessionState(), eventRecords))
+    this.setState(
+      mergeState({
+        sessionState: readSessionState(),
+        eventRecords,
+        profiles: authContext.profiles,
+        currentUser: authContext.currentUser,
+        currentAuthUserId: authContext.authUser?.id ?? null,
+      }),
+    )
   }
 
   async initialize() {
     await this.refreshRemoteState()
+
+    if (!this.unsubscribeAuth) {
+      const client = ensureSupabaseClient()
+      const {
+        data: { subscription },
+      } = client.auth.onAuthStateChange(() => {
+        void this.refreshRemoteState()
+      })
+      this.unsubscribeAuth = () => {
+        subscription.unsubscribe()
+      }
+    }
 
     if (this.unsubscribeRealtime) {
       return
@@ -151,27 +251,21 @@ export class SupabaseAppRepository implements AppRepository {
     const client = ensureSupabaseClient()
     const channel = client
       .channel('tournament-live-updates')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'participants' },
-        async () => {
-          await this.refreshRemoteState()
-        },
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'matches' },
-        async () => {
-          await this.refreshRemoteState()
-        },
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'event_invites' },
-        async () => {
-          await this.refreshRemoteState()
-        },
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, async () => {
+        await this.refreshRemoteState()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'participants' }, async () => {
+        await this.refreshRemoteState()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, async () => {
+        await this.refreshRemoteState()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'event_invites' }, async () => {
+        await this.refreshRemoteState()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, async () => {
+        await this.refreshRemoteState()
+      })
       .subscribe()
 
     this.unsubscribeRealtime = () => {
@@ -190,41 +284,32 @@ export class SupabaseAppRepository implements AppRepository {
     }
   }
 
-  async loginHost(name: string) {
-    const normalized = name.trim()
+  async signInWithOtp(email: string) {
+    const normalized = email.trim().toLowerCase()
     if (!normalized) {
-      throw new Error('主催者名を入力してください。')
+      throw new Error('メールアドレスを入力してください。')
     }
 
-    const nextSession = this.updateSession((sessionState) => {
-      const existing = sessionState.users.find(
-        (user) => user.role === 'host' && user.name.toLowerCase() === normalized.toLowerCase(),
-      )
-      if (existing) {
-        return { ...sessionState, currentUserId: existing.id }
-      }
-
-      const user: User = {
-        id: createId('user'),
-        name: normalized,
-        role: 'host',
-      }
-      return {
-        ...sessionState,
-        users: [...sessionState.users, user],
-        currentUserId: user.id,
-      }
+    const client = ensureSupabaseClient()
+    const result = await client.auth.signInWithOtp({
+      email: normalized,
+      options: {
+        emailRedirectTo: window.location.origin,
+      },
     })
-
-    const currentUser = nextSession.users.find((user) => user.id === nextSession.currentUserId)
-    if (!currentUser) {
-      throw new Error('主催者ログインに失敗しました。')
+    if (result.error) {
+      throw result.error
     }
-    return currentUser
   }
 
   async logout() {
-    this.updateSession((sessionState) => ({ ...sessionState, currentUserId: null }))
+    const client = ensureSupabaseClient()
+    const result = await client.auth.signOut()
+    if (result.error) {
+      throw result.error
+    }
+
+    await this.refreshRemoteState()
   }
 
   async logoutParticipant(eventId: string) {
@@ -246,9 +331,20 @@ export class SupabaseAppRepository implements AppRepository {
     }))
   }
 
-  async createEvent(hostUserId: string, input: CreateEventInput) {
+  async createEvent(input: CreateEventInput) {
     const client = ensureSupabaseClient()
-    const built = buildEventTournament(hostUserId, input)
+    const {
+      data: { user: authUser },
+      error: authError,
+    } = await client.auth.getUser()
+    if (authError) {
+      throw authError
+    }
+    if (!authUser) {
+      throw new Error('イベント作成には主催者ログインが必要です。')
+    }
+
+    const built = buildEventTournament(authUser.id, authUser.id, input)
 
     const eventResult = await client.from('events').insert(mapEventToInsert(built.event)).select().single()
     if (eventResult.error) {
@@ -304,6 +400,25 @@ export class SupabaseAppRepository implements AppRepository {
     return invite
   }
 
+  async listProfiles() {
+    await this.refreshRemoteState()
+    return this.state.profiles
+  }
+
+  async updateUserRole(userId: string, role: UserRole) {
+    if (this.state.currentUser?.role !== 'admin') {
+      throw new Error('管理者のみユーザー権限を更新できます。')
+    }
+
+    const client = ensureSupabaseClient()
+    const result = await client.from('profiles').update({ role }).eq('id', userId)
+    if (result.error) {
+      throw result.error
+    }
+
+    await this.refreshRemoteState()
+  }
+
   async getEventRecordById(eventId: string) {
     return this.state.eventRecords.find((record) => record.event.id === eventId) ?? null
   }
@@ -313,11 +428,7 @@ export class SupabaseAppRepository implements AppRepository {
   }
 
   async getInviteByToken(inviteToken: string) {
-    return (
-      this.state.eventRecords
-        .flatMap((record) => record.invites)
-        .find((invite) => invite.inviteToken === inviteToken) ?? null
-    )
+    return this.state.eventRecords.flatMap((record) => record.invites).find((invite) => invite.inviteToken === inviteToken) ?? null
   }
 
   async joinEvent(shareToken: string, participantName: string) {
@@ -408,12 +519,11 @@ export class SupabaseAppRepository implements AppRepository {
     }
 
     if (invite.status === 'joined' && invite.joinedParticipantId) {
-      const joinedParticipantId = invite.joinedParticipantId
       this.updateSession((sessionState) => ({
         ...sessionState,
         joinedParticipantIdsByEventId: {
           ...sessionState.joinedParticipantIdsByEventId,
-          [eventRecord.event.id]: joinedParticipantId,
+          [eventRecord.event.id]: invite.joinedParticipantId!,
         },
       }))
       return eventRecord
@@ -470,10 +580,11 @@ export class SupabaseAppRepository implements AppRepository {
       throw matchUpdateError
     }
 
-    const joinedParticipantId = nextInvite.joinedParticipantId
-    if (!joinedParticipantId) {
+    if (!nextInvite.joinedParticipantId) {
       throw new Error('招待参加者の参加IDを確定できませんでした。')
     }
+
+    const joinedParticipantId = nextInvite.joinedParticipantId
 
     this.updateSession((sessionState) => ({
       ...sessionState,
@@ -487,12 +598,7 @@ export class SupabaseAppRepository implements AppRepository {
     return this.state.eventRecords.find((record) => record.event.id === eventRecord.event.id) ?? eventRecord
   }
 
-  async updateParticipantAssignment(
-    eventId: string,
-    participantId: string,
-    assignedBlockIndex: number,
-    assignedSeed: number,
-  ) {
+  async updateParticipantAssignment(eventId: string, participantId: string, assignedBlockIndex: number, assignedSeed: number) {
     const client = ensureSupabaseClient()
     const eventRecord = this.state.eventRecords.find((record) => record.event.id === eventId)
     if (!eventRecord) {
@@ -508,9 +614,7 @@ export class SupabaseAppRepository implements AppRepository {
     )
     const nextMatches = recomputeMatches(eventRecord.blocks, participants, eventRecord.matches)
     const changedParticipants = participants.filter((nextParticipant) => {
-      const currentParticipant = eventRecord.participants.find(
-        (participant) => participant.id === nextParticipant.id,
-      )
+      const currentParticipant = eventRecord.participants.find((participant) => participant.id === nextParticipant.id)
       return (
         currentParticipant &&
         (currentParticipant.assignedBlockIndex !== nextParticipant.assignedBlockIndex ||
@@ -520,12 +624,8 @@ export class SupabaseAppRepository implements AppRepository {
 
     if (changedParticipants.length === 2) {
       const movingParticipant = participants.find((participant) => participant.id === participantId)
-      const swappedParticipant = changedParticipants.find(
-        (participant) => participant.id !== participantId,
-      )
-      const originalParticipant = eventRecord.participants.find(
-        (participant) => participant.id === participantId,
-      )
+      const swappedParticipant = changedParticipants.find((participant) => participant.id !== participantId)
+      const originalParticipant = eventRecord.participants.find((participant) => participant.id === participantId)
 
       if (!movingParticipant || !swappedParticipant || !originalParticipant) {
         throw new Error('参加者配置の更新対象を特定できませんでした。')
@@ -624,19 +724,13 @@ export class SupabaseAppRepository implements AppRepository {
       throw new Error('参加者が見つかりません。')
     }
 
-    const participantResult = await client
-      .from('participants')
-      .update({ name: normalized })
-      .eq('id', participantId)
+    const participantResult = await client.from('participants').update({ name: normalized }).eq('id', participantId)
     if (participantResult.error) {
       throw participantResult.error
     }
 
     if (participant.inviteId) {
-      const inviteResult = await client
-        .from('event_invites')
-        .update({ display_name: normalized })
-        .eq('id', participant.inviteId)
+      const inviteResult = await client.from('event_invites').update({ display_name: normalized }).eq('id', participant.inviteId)
       if (inviteResult.error) {
         throw inviteResult.error
       }

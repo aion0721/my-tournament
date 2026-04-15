@@ -1,4 +1,4 @@
-import type { CreateEventInput, CreateInviteInput } from '../domain/models'
+import type { CreateEventInput, CreateInviteInput, UserRole } from '../domain/models'
 import type { AppRepository } from '../repositories/appRepository'
 
 export class AppService {
@@ -12,8 +12,8 @@ export class AppService {
     return this.repository.initialize()
   }
 
-  loginHost(name: string) {
-    return this.repository.loginHost(name)
+  signInWithOtp(email: string) {
+    return this.repository.signInWithOtp(email)
   }
 
   logout() {
@@ -28,8 +28,8 @@ export class AppService {
     return this.repository.selectParticipantSession(eventId, participantId)
   }
 
-  createEvent(hostUserId: string, input: CreateEventInput) {
-    return this.repository.createEvent(hostUserId, input)
+  createEvent(input: CreateEventInput) {
+    return this.repository.createEvent(input)
   }
 
   deleteEvent(eventId: string) {
@@ -38,6 +38,14 @@ export class AppService {
 
   createInvite(input: CreateInviteInput) {
     return this.repository.createInvite(input)
+  }
+
+  listProfiles() {
+    return this.repository.listProfiles()
+  }
+
+  updateUserRole(userId: string, role: UserRole) {
+    return this.repository.updateUserRole(userId, role)
   }
 
   joinEvent(shareToken: string, participantName: string) {

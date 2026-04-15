@@ -1,6 +1,6 @@
 import { assignRandomSlot } from '../domain/assignment'
 import { createBlocksForEvent } from '../domain/blocks'
-import { createId } from '../domain/id'
+import { createId, createStableHostUserId, normalizeHostIdentity } from '../domain/id'
 import { createEventInvite, createParticipantFromInvite, validateInviteSlot } from '../domain/invites'
 import { reassignParticipantSlot } from '../domain/participants'
 import type {
@@ -10,7 +10,8 @@ import type {
   EventInvite,
   EventRecord,
   Participant,
-  User,
+  UserProfile,
+  UserRole,
 } from '../domain/models'
 import { buildEventTournament, recomputeMatches, setBlockQualifiers, setMatchWinner } from '../domain/tournament'
 import type { AppRepository } from './appRepository'
@@ -19,8 +20,9 @@ const STORAGE_KEY = 'tournament-mvp-state-v3'
 const CHANGE_EVENT = 'tournament-mvp-state-updated'
 
 const initialState: AppState = {
-  users: [],
-  currentUserId: null,
+  profiles: [],
+  currentUser: null,
+  currentAuthUserId: null,
   joinedParticipantIdsByEventId: {},
   eventRecords: [],
   storageMode: 'local',
@@ -134,42 +136,63 @@ export class LocalStorageAppRepository implements AppRepository {
     }
   }
 
-  async loginHost(name: string) {
-    const normalized = name.trim()
+  async signInWithOtp(email: string) {
+    const normalized = email.trim().toLowerCase()
     if (!normalized) {
-      throw new Error('主催者名を入力してください。')
+      throw new Error('メールアドレスを入力してください。')
     }
 
-    const nextState = updateState((state) => {
-      const existing = state.users.find(
-        (user) => user.role === 'host' && user.name.toLowerCase() === normalized.toLowerCase(),
-      )
-      if (existing) {
-        return { ...state, currentUserId: existing.id, storageMode: 'local' as const }
-      }
+    const stableUserId = createStableHostUserId(normalized)
+    const normalizedIdentity = normalizeHostIdentity(normalized)
 
-      const user: User = {
-        id: createId('user'),
-        name: normalized,
+    const nextState = updateState((state) => {
+      const sameProfiles = state.profiles.filter(
+        (profile) => normalizeHostIdentity(profile.displayName) === normalizedIdentity,
+      )
+      const nextProfile: UserProfile = {
+        id: stableUserId,
+        displayName: sameProfiles[0]?.displayName ?? normalized,
         role: 'host',
       }
+      const sameProfileIds = new Set(sameProfiles.map((profile) => profile.id))
+      sameProfileIds.add(stableUserId)
+
       return {
         ...state,
-        users: [...state.users, user],
-        currentUserId: user.id,
+        profiles: [
+          ...state.profiles.filter((profile) => !sameProfileIds.has(profile.id)),
+          nextProfile,
+        ],
+        currentUser: nextProfile,
+        currentAuthUserId: stableUserId,
+        eventRecords: state.eventRecords.map((record) =>
+          sameProfileIds.has(record.event.hostUserId)
+            ? {
+                ...record,
+                event: {
+                  ...record.event,
+                  hostUserId: stableUserId,
+                  hostAuthUserId: stableUserId,
+                },
+              }
+            : record,
+        ),
         storageMode: 'local' as const,
       }
     })
 
-    const currentUser = nextState.users.find((user) => user.id === nextState.currentUserId)
-    if (!currentUser) {
+    if (!nextState.currentUser) {
       throw new Error('主催者ログインに失敗しました。')
     }
-    return currentUser
   }
 
   async logout() {
-    updateState((state) => ({ ...state, currentUserId: null, storageMode: 'local' as const }))
+    updateState((state) => ({
+      ...state,
+      currentUser: null,
+      currentAuthUserId: null,
+      storageMode: 'local' as const,
+    }))
   }
 
   async logoutParticipant(eventId: string) {
@@ -193,11 +216,15 @@ export class LocalStorageAppRepository implements AppRepository {
     }))
   }
 
-  async createEvent(hostUserId: string, input: CreateEventInput) {
+  async createEvent(input: CreateEventInput) {
     let createdRecord: EventRecord | null = null
 
     updateState((state) => {
-      const built = buildEventTournament(hostUserId, input)
+      if (!state.currentAuthUserId) {
+        throw new Error('イベント作成には主催者ログインが必要です。')
+      }
+
+      const built = buildEventTournament(state.currentAuthUserId, state.currentAuthUserId, input)
       createdRecord = {
         event: built.event,
         blocks: built.blocks,
@@ -253,6 +280,30 @@ export class LocalStorageAppRepository implements AppRepository {
       throw new Error('招待作成に失敗しました。')
     }
     return createdInvite
+  }
+
+  async listProfiles() {
+    return this.getState().profiles
+  }
+
+  async updateUserRole(userId: string, role: UserRole) {
+    updateState((state) => {
+      if (state.currentUser?.role !== 'admin') {
+        throw new Error('管理者のみユーザー権限を更新できます。')
+      }
+
+      return {
+        ...state,
+        profiles: state.profiles.map((profile) =>
+          profile.id === userId ? { ...profile, role } : profile,
+        ),
+        currentUser:
+          state.currentUser.id === userId
+            ? { ...state.currentUser, role }
+            : state.currentUser,
+        storageMode: 'local' as const,
+      }
+    })
   }
 
   async getEventRecordById(eventId: string) {

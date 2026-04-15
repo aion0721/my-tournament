@@ -1,10 +1,10 @@
-export type UserRole = 'host' | 'participant'
+export type UserRole = 'host' | 'admin'
 export type MatchStageType = 'block' | 'final'
 export type MatchSlotPosition = 1 | 2
 
-export interface User {
+export interface UserProfile {
   id: string
-  name: string
+  displayName: string
   role: UserRole
 }
 
@@ -12,7 +12,7 @@ export interface Event {
   id: string
   name: string
   hostUserId: string
-  hostAuthUserId?: string | null
+  hostAuthUserId: string
   capacity: number
   participantsPerBlock: number
   winnersPerBlock: number
@@ -100,8 +100,9 @@ export interface EventRecord {
 }
 
 export interface AppState {
-  users: User[]
-  currentUserId: string | null
+  profiles: UserProfile[]
+  currentUser: UserProfile | null
+  currentAuthUserId: string | null
   joinedParticipantIdsByEventId: Record<string, string>
   eventRecords: EventRecord[]
   storageMode?: 'local' | 'supabase'

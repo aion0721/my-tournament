@@ -1,17 +1,21 @@
 import { createContext } from 'react'
-import type { AppState, CreateEventInput, CreateInviteInput } from '../domain/models'
+import type { AppState, CreateEventInput, CreateInviteInput, UserProfile, UserRole } from '../domain/models'
 
 export interface AppStoreValue {
   state: AppState
+  currentUser: UserProfile | null
   currentUserName: string | null
+  isAdmin: boolean
   isReady: boolean
-  loginHost: (name: string) => Promise<void>
+  signInWithOtp: (email: string) => Promise<void>
   logout: () => Promise<void>
   logoutParticipant: (eventId: string) => Promise<void>
   selectParticipantSession: (eventId: string, participantId: string) => Promise<void>
-  createEvent: (hostUserId: string, input: CreateEventInput) => Promise<string>
+  createEvent: (input: CreateEventInput) => Promise<string>
   deleteEvent: (eventId: string) => Promise<void>
   createInvite: (input: CreateInviteInput) => Promise<void>
+  listProfiles: () => Promise<UserProfile[]>
+  updateUserRole: (userId: string, role: UserRole) => Promise<void>
   joinEvent: (shareToken: string, participantName: string) => Promise<void>
   joinEventByInvite: (inviteToken: string) => Promise<void>
   updateParticipantAssignment: (

@@ -1,38 +1,36 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { EventCreateForm } from "../components/EventCreateForm";
-import { HostAuthCard } from "../components/HostAuthCard";
-import { useAppStore } from "../hooks/useAppStore";
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { EventCreateForm } from '../components/EventCreateForm'
+import { HostAuthCard } from '../components/HostAuthCard'
+import { useAppStore } from '../hooks/useAppStore'
 
 export function EventCreatePage() {
-  const navigate = useNavigate();
+  const navigate = useNavigate()
   const {
     state,
+    currentUser,
     currentUserName,
+    isAdmin,
     isReady,
-    loginHost,
+    signInWithOtp,
     logout,
     createEvent,
     deleteEvent,
-  } = useAppStore();
-  const [error, setError] = useState<string | null>(null);
-
-  const currentUser = useMemo(
-    () => state.users.find((user) => user.id === state.currentUserId) ?? null,
-    [state.currentUserId, state.users],
-  );
+  } = useAppStore()
+  const [error, setError] = useState<string | null>(null)
 
   const hostEvents = useMemo(
     () =>
       state.eventRecords.filter(
-        (eventRecord) => eventRecord.event.hostUserId === state.currentUserId,
+        (eventRecord) =>
+          isAdmin || eventRecord.event.hostAuthUserId === state.currentAuthUserId,
       ),
-    [state.eventRecords, state.currentUserId],
-  );
+    [isAdmin, state.currentAuthUserId, state.eventRecords],
+  )
 
   useEffect(() => {
-    document.title = "MyTournament";
-  }, []);
+    document.title = 'MyTournament'
+  }, [])
 
   return (
     <main className="page">
@@ -44,24 +42,25 @@ export function EventCreatePage() {
               <span className="eyebrow">Tournament MVP</span>
               <h1>MyTournament</h1>
               <p className="lead">
-                主催者はイベント作成と管理、参加者は共有 URL
-                から参加できます。保存先は
-                {state.storageMode === "supabase"
-                  ? " Supabase"
-                  : " localStorage"}{" "}
-                です。
+                主催者はイベント作成と管理、参加者は共有 URL から参加できます。保存先は
+                {state.storageMode === 'supabase' ? ' Supabase' : ' localStorage'} です。
               </p>
             </div>
           </div>
           {currentUserName ? (
             <div className="button-row">
               <span className="badge">{currentUserName}</span>
+              {isAdmin ? (
+                <Link className="chip-button" to="/admin/users">
+                  ユーザー管理
+                </Link>
+              ) : null}
               <button
                 className="button-secondary"
                 type="button"
                 onClick={async () => {
-                  await logout();
-                  setError(null);
+                  await logout()
+                  setError(null)
                 }}
               >
                 ログアウト
@@ -74,17 +73,16 @@ export function EventCreatePage() {
 
       <div className="grid-2">
         <HostAuthCard
-          currentUserName={currentUserName}
-          onLogin={async (name) => {
+          currentUser={currentUser}
+          onSignInWithOtp={async (email) => {
             try {
-              setError(null);
-              await loginHost(name);
+              setError(null)
+              await signInWithOtp(email)
+              setError('ログインリンクを送信しました。メールを確認してください。')
             } catch (caught) {
               setError(
-                caught instanceof Error
-                  ? caught.message
-                  : "ログインに失敗しました。",
-              );
+                caught instanceof Error ? caught.message : 'ログインリンクの送信に失敗しました。',
+              )
             }
           }}
           onLogout={() => void logout()}
@@ -93,20 +91,18 @@ export function EventCreatePage() {
           disabled={!isReady || !currentUser}
           onSubmit={async (input) => {
             if (!currentUser) {
-              setError("イベント作成には主催者ログインが必要です。");
-              return;
+              setError('イベント作成には主催者ログインが必要です。')
+              return
             }
 
             try {
-              setError(null);
-              const eventId = await createEvent(currentUser.id, input);
-              navigate(`/events/${eventId}`);
+              setError(null)
+              const eventId = await createEvent(input)
+              navigate(`/events/${eventId}`)
             } catch (caught) {
               setError(
-                caught instanceof Error
-                  ? caught.message
-                  : "イベント作成に失敗しました。",
-              );
+                caught instanceof Error ? caught.message : 'イベント作成に失敗しました。',
+              )
             }
           }}
         />
@@ -114,9 +110,11 @@ export function EventCreatePage() {
 
       <section className="section-card stack">
         <div>
-          <div className="section-title">主催イベント</div>
+          <div className="section-title">{isAdmin ? '管理対象イベント' : '主催イベント'}</div>
           <p className="muted">
-            現在ログイン中の主催者が作成したイベント一覧です。
+            {isAdmin
+              ? '管理者は全イベントを閲覧・管理できます。'
+              : '現在ログイン中の主催者が作成したイベント一覧です。'}
           </p>
         </div>
         {hostEvents.length === 0 ? (
@@ -135,10 +133,7 @@ export function EventCreatePage() {
                   <Link className="chip-button" to={`/events/${event.id}`}>
                     ホスト画面
                   </Link>
-                  <Link
-                    className="chip-button"
-                    to={`/join/${event.shareToken}`}
-                  >
+                  <Link className="chip-button" to={`/join/${event.shareToken}`}>
                     参加画面
                   </Link>
                   <button
@@ -147,20 +142,18 @@ export function EventCreatePage() {
                     onClick={async () => {
                       const shouldDelete = window.confirm(
                         `「${event.name}」を削除します。元に戻せません。`,
-                      );
+                      )
                       if (!shouldDelete) {
-                        return;
+                        return
                       }
 
                       try {
-                        setError(null);
-                        await deleteEvent(event.id);
+                        setError(null)
+                        await deleteEvent(event.id)
                       } catch (caught) {
                         setError(
-                          caught instanceof Error
-                            ? caught.message
-                            : "イベント削除に失敗しました。",
-                        );
+                          caught instanceof Error ? caught.message : 'イベント削除に失敗しました。',
+                        )
                       }
                     }}
                   >
@@ -173,5 +166,5 @@ export function EventCreatePage() {
         )}
       </section>
     </main>
-  );
+  )
 }
