@@ -12,6 +12,7 @@ export function ParticipantJoinPage() {
     state,
     isReady,
     joinEvent,
+    joinEventByInvite,
     logoutParticipant,
     selectParticipantSession,
     updateParticipantName,
@@ -61,6 +62,9 @@ export function ParticipantJoinPage() {
     ? getParticipantFirstMatch(joinedParticipant, eventRecord.matches)
     : null
   const isFull = eventRecord.participants.length >= eventRecord.event.capacity
+  const presetInvites = eventRecord.invites.filter(
+    (invite) => invite.inviteType === 'preset' && invite.status === 'pending',
+  )
 
   return (
     <main className="page">
@@ -173,6 +177,51 @@ export function ParticipantJoinPage() {
           )}
         </section>
       </div>
+
+      <section className="section-card stack">
+        <div>
+          <div className="section-title">事前登録参加者</div>
+          <p className="muted">
+            ホストがあらかじめ登録した参加者です。自分の名前を押すとその参加者として参加できます。
+          </p>
+        </div>
+        {presetInvites.length === 0 ? (
+          <div className="empty-state">事前登録された参加者はいません。</div>
+        ) : (
+          <div className="list">
+            {presetInvites.map((invite) => (
+              <div className="participant-row" key={invite.id}>
+                <div>
+                  <strong>{invite.displayName}</strong>
+                  <div className="muted">
+                    {invite.fixedBlockIndex !== null && invite.fixedSeed !== null
+                      ? `固定枠: Block ${invite.fixedBlockIndex + 1} / Seed ${invite.fixedSeed}`
+                      : '枠は参加時に確定'}
+                  </div>
+                </div>
+                <div className="button-row">
+                  <button
+                    className="button-secondary"
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await joinEventByInvite(invite.inviteToken)
+                        setNotice(`${invite.displayName} として参加しました。`)
+                      } catch (caught) {
+                        setNotice(
+                          caught instanceof Error ? caught.message : '事前登録参加に失敗しました。',
+                        )
+                      }
+                    }}
+                  >
+                    この名前で参加
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       <TournamentView
         blocks={eventRecord.blocks}

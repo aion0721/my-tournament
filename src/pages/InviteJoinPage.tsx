@@ -79,7 +79,8 @@ export function InviteJoinPage() {
             <span className="eyebrow">Invite Join</span>
             <h1>{eventRecord.event.name}</h1>
             <p className="lead">
-              {invite.displayName} さん向けの招待参加ページです。トーナメント上の名前を押すと、その参加者として表示を切り替えられます。
+              {invite.displayName} さん向けの
+              {invite.inviteType === 'preset' ? '事前登録参加ページ' : '招待参加ページ'}です。トーナメント上の名前を押すと、その参加者として表示を切り替えられます。
             </p>
           </div>
           <div className="topbar-links">

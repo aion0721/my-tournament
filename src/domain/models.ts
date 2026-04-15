@@ -33,12 +33,14 @@ export interface Participant {
 }
 
 export type EventInviteStatus = 'pending' | 'joined'
+export type EventInviteType = 'private' | 'preset'
 
 export interface EventInvite {
   id: string
   eventId: string
   displayName: string
   inviteToken: string
+  inviteType: EventInviteType
   status: EventInviteStatus
   fixedBlockIndex: number | null
   fixedSeed: number | null
@@ -124,6 +126,7 @@ export interface CreateEventValidationResult {
 export interface CreateInviteInput {
   eventId: string
   displayName: string
+  inviteType: EventInviteType
   fixedBlockIndex: number | null
   fixedSeed: number | null
 }

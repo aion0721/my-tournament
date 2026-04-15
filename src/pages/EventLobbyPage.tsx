@@ -172,15 +172,20 @@ export function EventLobbyPage() {
       <InviteManagementCard
         eventRecord={eventRecord}
         canEdit={isHost}
-        onCreateInvite={async (displayName, fixedBlockIndex, fixedSeed) => {
+        onCreateInvite={async (displayName, inviteType, fixedBlockIndex, fixedSeed) => {
           try {
             await createInvite({
               eventId: eventRecord.event.id,
               displayName,
+              inviteType,
               fixedBlockIndex,
               fixedSeed,
             })
-            setNotice('招待 URL を発行しました。')
+            setNotice(
+              inviteType === 'preset'
+                ? '事前登録参加者を追加しました。'
+                : '招待 URL を発行しました。',
+            )
           } catch (caught) {
             setNotice(
               caught instanceof Error ? caught.message : '招待作成に失敗しました。',

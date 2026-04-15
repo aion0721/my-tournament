@@ -17,6 +17,7 @@ export function createEventInvite(input: CreateInviteInput): EventInvite {
     eventId: input.eventId,
     displayName,
     inviteToken: createInviteToken(),
+    inviteType: input.inviteType,
     status: 'pending',
     fixedBlockIndex: input.fixedBlockIndex,
     fixedSeed: input.fixedSeed,

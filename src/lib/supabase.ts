@@ -113,6 +113,7 @@ export interface Database {
           event_id: string
           display_name: string
           invite_token: string
+          invite_type: 'private' | 'preset'
           status: 'pending' | 'joined'
           fixed_block_index: number | null
           fixed_seed: number | null
@@ -124,6 +125,7 @@ export interface Database {
           event_id: string
           display_name: string
           invite_token: string
+          invite_type?: 'private' | 'preset'
           status: 'pending' | 'joined'
           fixed_block_index?: number | null
           fixed_seed?: number | null
@@ -135,6 +137,7 @@ export interface Database {
           event_id: string
           display_name: string
           invite_token: string
+          invite_type?: 'private' | 'preset'
           status: 'pending' | 'joined'
           fixed_block_index?: number | null
           fixed_seed?: number | null
